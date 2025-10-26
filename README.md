@@ -5,7 +5,7 @@
 - Node.js (version 16 or higher)
 - npm or yarn package manager
 
-### Installation
+### Setup Guide
 
 1. **Clone the repository**
    ```bash
@@ -15,57 +15,35 @@
 
 2. **Install dependencies**
    ```bash
-   npm install
+   # Run install-all.bat in root directory
    ```
 
 3. **Set up environment variables**
    ```bash
-   cp .env.example .env
-   ```
-   Edit the `.env` file with your configuration:
-   ```
-   PORT=3000
-   NODE_ENV=development
-   JWT_SECRET=your-super-secure-jwt-secret-key-here
-   MONGODB_URI=mongodb://localhost:27017/aloeshield
-   CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
-   CLOUDINARY_API_KEY=your-cloudinary-api-key
-   CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+   # See .env.example for configuration
    ```
 
-4. **Set up MongoDB**
+4. **Insert the Datasets and Models**
+   ```bash
+   # Put the dataset and model files in the ml_service directory
+   ```
+
+5. **Set up MongoDB**
    ```bash
    # Install MongoDB locally or use MongoDB Atlas
    # The application will create collections automatically
    ```
 
-5. **Start the development server**
+6. **Start the servers**
    ```bash
-   npm run dev
+   # Run start-all.bat in root directory
    ```
 
-6. **Open your browser**
-   Navigate to `http://localhost:3000`
-
-### Production Deployment
-
-1. **Install dependencies**
+7. **Open your browser**
    ```bash
-   npm install --production
+   # Navigate to `http://localhost:3000`
    ```
-
-2. **Set environment variables**
-   ```bash
-   export NODE_ENV=production
-   export PORT=3000
-   # Set other production variables
-   ```
-
-3. **Start the server**
-   ```bash
-   npm start
-   ```
-
+   
 ## Project Structure
 
 ```
