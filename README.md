@@ -232,4 +232,10 @@ The application uses an aloe vera-inspired color palette:
    rm -rf node_modules package-lock.json
    npm install
    ```
+5. **Some dependencies still missing Even after reinstalling**
+   ```bash
+   # Install the missing dependency manually
+   # The most common one that won't install properly is axios
+   npm install axios
+   ```
 ---
