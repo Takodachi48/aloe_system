@@ -93,6 +93,18 @@ class Database {
             await maintenanceCollection.createIndex({ cancelled: 1 });
             await maintenanceCollection.createIndex({ createdBy: 1 });
 
+            // Create indexes for response_times
+            const responseTimesCollection = this.db.collection('response_times');
+            await responseTimesCollection.createIndex({ timestamp: -1 });
+            await responseTimesCollection.createIndex({ endpoint: 1, timestamp: -1 });
+            await responseTimesCollection.createIndex({ timestamp: 1 }, { expireAfterSeconds: 7776000 }); // Auto-delete after 90 days
+
+            // Create indexes for uptime_events
+            const uptimeEventsCollection = this.db.collection('uptime_events');
+            await uptimeEventsCollection.createIndex({ timestamp: -1 });
+            await uptimeEventsCollection.createIndex({ event_type: 1, timestamp: -1 });
+            await uptimeEventsCollection.createIndex({ timestamp: 1 }, { expireAfterSeconds: 7776000 }); // Auto-delete after 90 days
+
             console.log('Database indexes created');
         } catch (err) {
             console.error('Error creating indexes:', err.message);

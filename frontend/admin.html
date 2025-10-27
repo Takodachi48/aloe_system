@@ -6,6 +6,7 @@
     <title>Admin Dashboard - AloeShield</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <header class="admin-header">
@@ -203,37 +204,143 @@
                     <h1>Analytics</h1>
                     <p class="subtitle">System analytics and insights</p>
                 </header>
+
+                <!-- Quick Stats Section -->
                 <div class="stats-grid">
-                    <!-- Cloudinary Storage Card -->
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Total Scans</div>
+                            <div class="stat-value" id="totalScans">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                                <path d="M10 17l2 2 4-4"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Detected Categories</div>
+                            <div class="stat-value" id="diseasesDetected">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                                <polyline points="17 6 23 6 23 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-label">Avg Confidence</div>
+                            <div class="stat-value" id="avgConfidence">0%</div>
+                        </div>
+                    </div>
                     <div class="stat-card">
                         <div class="stat-icon cloudinary-icon">
                             <svg viewBox="0 0 24 24" width="24" height="24">
                                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                                <path d="M3.27 6.96L12 12.01l8.73-5.05"></path>
-                                <path d="M12 22.08V12"></path>
                             </svg>
                         </div>
                         <div class="stat-content">
-                            <div class="stat-label">Cloudinary Storage</div>
+                            <div class="stat-label">Storage Used</div>
                             <div id="cloudinaryStatsContainer">
                                 <div class="loading-spinner"></div>
-                                <span>Loading Cloudinary stats...</span>
+                                <span>Loading...</span>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Additional analytics cards can be added here -->
-                    <div class="stat-card coming-soon">
-                        <div class="stat-icon">
-                            <svg viewBox="0 0 24 24" width="24" height="24">
-                                <circle cx="12" cy="12" r="10"></circle>
-                                <polyline points="12 6 12 12 16 14"></polyline>
-                            </svg>
+                </div>
+
+                <!-- A. AI & Detection Performance Metrics -->
+                <div class="analytics-section">
+                    <h2 class="section-title">AI & Detection Performance Metrics</h2>
+                    <div class="analytics-grid">
+                        <!-- Scanned and Detected Diseases (Pie Chart) -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>Scanned & Detected Diseases</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="diseasePieChart"></canvas>
+                            </div>
                         </div>
-                        <div class="stat-content">
-                            <div class="stat-label">More Analytics</div>
-                            <div class="stat-value">Coming Soon</div>
-                            <div class="stat-description">Additional analytics will be available in future updates</div>
+
+                        <!-- Average AI Confidence Scores (Bar Chart) -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>Average AI Confidence by Disease</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="confidenceBarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- B. System Performance & Reliability Metrics -->
+                <div class="analytics-section">
+                    <h2 class="section-title">System Performance & Reliability Metrics</h2>
+                    <div class="analytics-grid">
+                        <!-- Server Response Time (Line Chart) -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>Server Response Time</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="responseTimeChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- System Uptime / Downtime (Gauge / Status) -->
+                        <div class="analytics-card">
+                            <div class="card-header">
+                                <h3>System Uptime & Downtime</h3>
+                            </div>
+                            <div class="card-body">
+                                <div id="uptimeContainer" class="uptime-status">
+                                    <div class="uptime-gauge">
+                                        <span class="uptime-value">99.9%</span>
+                                        <span class="uptime-label">Uptime</span>
+                                    </div>
+                                    <div class="uptime-details">
+                                        <p><strong>Current Status:</strong> <span id="systemStatus" class="status-badge active">Active</span></p>
+                                        <p><strong>Last Downtime:</strong> <span id="lastDowntime">-</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- C. User Activity & Behavior Metrics -->
+                <div class="analytics-section">
+                    <h2 class="section-title">User Activity & Behavior Metrics</h2>
+                    <div class="analytics-grid">
+                        <!-- Scans / Uploads per Day (Area Chart) -->
+                        <div class="analytics-card full-width">
+                            <div class="card-header">
+                                <h3>Scans & Uploads per Day (Last 30 Days)</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="dailyScansChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Peak Activity Hours (Bar Chart 24-hour) -->
+                        <div class="analytics-card full-width">
+                            <div class="card-header">
+                                <h3>Peak Activity Hours (24-Hour)</h3>
+                            </div>
+                            <div class="card-body">
+                                <canvas id="hourlyActivityChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
