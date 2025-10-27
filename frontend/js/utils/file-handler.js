@@ -45,6 +45,11 @@ export function handleFile(file) {
     AppState.currentFile = file;
     AppState.currentImage = URL.createObjectURL(file);
     AppState.isAnalyzed = false;
+    AppState.isAnalyzing = false;
+
+    if (Elements.resultsContainer) {
+        Elements.resultsContainer.innerHTML = '<div class="results-placeholder">Upload an image to view analysis results</div>';
+    }
 
     displayPreview(file);
 }
@@ -82,6 +87,7 @@ function displayPreview(file) {
 function enableAnalyzeButton() {
     if (Elements.analyzeBtn) {
         Elements.analyzeBtn.disabled = false;
+        Elements.analyzeBtn.textContent = 'Analyze Image';
         Elements.analyzeBtn.style.opacity = '1';
         Elements.analyzeBtn.style.cursor = 'pointer';
     }

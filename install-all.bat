@@ -30,12 +30,10 @@ if not exist "venv" (
 )
 
 echo Activating virtual environment and installing packages...
-call venv\Scripts\activate.bat
 
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+venv\Scripts\python -m pip install --upgrade pip
+venv\Scripts\pip install -r requirements.txt
 
-call venv\Scripts\deactivate.bat
 echo OK: Python dependencies installed
 
 cd ..\..

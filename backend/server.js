@@ -7,6 +7,7 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const database = require('./database/database');
+const { getDb } = require('./database/database');
 const { maintenanceMiddleware } = require('./middleware/maintenance');
 
 const app = express();
@@ -18,6 +19,7 @@ const historyRoutes = require('./routes/history');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const healthCheckService = require('./services/healthCheck');
 
 // Security middleware
 app.use(helmet({
@@ -27,11 +29,11 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
-            scriptSrc: ["'self'"],
-            connectSrc: ["'self'", "https://res.cloudinary.com", "https://*.cloudinary.com"]
+            scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
+            connectSrc: ["'self'", "https://res.cloudinary.com", "https://*.cloudinary.com", "https://cdn.jsdelivr.net"]
         }
     },
-    crossOriginEmbedderPolicy: false // Disable COEP to allow Cloudinary images
+    crossOriginEmbedderPolicy: false
 }));
 
 // Rate limiting configuration
@@ -89,6 +91,37 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Response time tracking middleware
+app.use((req, res, next) => {
+    const startTime = Date.now();
+    const originalPath = req.originalUrl.split('?')[0];
+    
+    res.on('finish', () => {
+        const duration = Date.now() - startTime;
+        
+        if (originalPath.startsWith('/api/') && res.statusCode >= 200 && res.statusCode < 400) {
+            setImmediate(async () => {
+                try {
+                    const db = getDb();
+                    const responseTimesCollection = db.collection('response_times');
+                    await responseTimesCollection.insertOne({
+                        endpoint: originalPath,
+                        method: req.method,
+                        status_code: res.statusCode,
+                        duration_ms: duration,
+                        timestamp: new Date(),
+                        query_params: Object.keys(req.query).length > 0 ? req.query : null
+                    });
+                } catch (dbError) {
+                    console.error(`[Response Tracking Error] ${req.method} ${originalPath}: ${dbError.message}`);
+                }
+            });
+        }
+    });
+    
+    next();
+});
 
 // API Routes - MUST come before static files and catch-all
 console.log('Registering API routes...');
@@ -182,6 +215,9 @@ async function startServer() {
         await database.connect();
         console.log('Connected to MongoDB database');
         console.log('Database indexes created');
+        
+        // Start health check service
+        healthCheckService.startHealthCheckJob();
         
         // Start server
         app.listen(PORT, () => {
