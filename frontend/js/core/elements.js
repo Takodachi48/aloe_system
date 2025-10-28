@@ -41,7 +41,13 @@ export const Elements = {
     logoutConfirmationModal: document.getElementById('logoutConfirmationModal'),
     logoutConfirmationOverlay: document.getElementById('logoutConfirmationOverlay'),
     logoutConfirmationCancel: document.getElementById('logoutConfirmationCancel'),
-    logoutConfirmationConfirm: document.getElementById('logoutConfirmationConfirm')
+    logoutConfirmationConfirm: document.getElementById('logoutConfirmationConfirm'),
+    currentWeatherContainer: document.getElementById('currentWeatherContainer'),
+    diseaseRiskContainer: document.getElementById('diseaseRiskContainer'),
+    forecastContainer: document.getElementById('forecastContainer'),
+    weatherLocation: document.getElementById('weatherLocation'),
+    setLocationBtn: document.getElementById('setLocationBtn'),
+    useGeolocationBtn: document.getElementById('useGeolocationBtn')
 };
 
 export function getElement(id) {

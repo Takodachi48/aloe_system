@@ -1,6 +1,10 @@
 import { Elements } from '../core/elements.js';
 
 const pageHeaderMap = {
+    weather: {
+        title: 'Weather Forecast & Disease Risk',
+        subtitle: 'Monitor weather conditions to prevent aloe vera diseases'
+    },
     analyze: {
         title: 'Disease Analysis',
         subtitle: 'Upload an image of your aloe vera plant for AI-powered health analysis'

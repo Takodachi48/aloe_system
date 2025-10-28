@@ -2,6 +2,7 @@ import { Elements } from '../../core/elements.js';
 import { navigateToPage, toggleSidebarCollapse, loadSidebarState } from '../../utils/navigation.js';
 import { generateDiseaseGuide } from '../pages/diseases.js';
 import { loadHistoryPage } from '../pages/history.js';
+import { initWeatherPage } from '../pages/weather.js';
 
 export function initSidebar() {
     loadSidebarState();

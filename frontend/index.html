@@ -83,6 +83,14 @@
             <span>Analysis History</span>
             </button>
             
+            <button class="nav-item" data-page="weather">
+                <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.31 3A4.5 4.5 0 0 0 6 19h11.5z"></path>
+                </svg>
+                <span>Weather Forecast</span>
+            </button>
+            
             <button class="nav-item" data-page="diseases">
                 <svg class="nav-icon" viewBox="0 0 24 24">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
@@ -116,6 +124,84 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="container">
+            <!-- Weather Forecast Page -->
+            <div class="page" id="weatherPage">
+                <header>
+                    <h1>Weather Forecast & Disease Risk</h1>
+                    <p class="subtitle">Monitor weather conditions to prevent aloe vera diseases</p>
+                </header>
+
+                <div class="main-grid">
+                    <!-- Current Weather Card -->
+                    <div class="card">
+                        <h2>Current Weather</h2>
+                        <div id="currentWeatherContainer">
+                            <div class="weather-placeholder">
+                                <p>Location: <span id="weatherLocation">Not set</span></p>
+                                <button class="btn btn-secondary" id="setLocationBtn">Set Location</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Disease Risk Assessment -->
+                    <div class="card">
+                        <h2>Plant Disease Risk</h2>
+                        <div id="diseaseRiskContainer">
+                            <div class="risk-placeholder" style="text-align: center; padding: 32px 24px;">
+                                <svg width="56" height="45" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin: 0 auto 16px; opacity: 0.4; color: #10b981;">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M2 12h20"/>
+                                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                </svg>
+                                <p style="font-weight: 600; margin-bottom: 8px; color: var(--text-primary); font-size: 15px;">Weather-Based Risk Assessment</p>
+                                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 16px;">Enable location to view disease risk levels based on current weather conditions in your area.</p>
+                                <div style="max-width: 200px; margin: 0 auto; height: 8px; background: linear-gradient(to right, #22c55e, #fbbf24, #ef4444); border-radius: 4px; opacity: 0.3;"></div>
+                                <div style="display: flex; justify-content: space-between; max-width: 200px; margin: 8px auto 0; font-size: 11px; color: var(--text-secondary); opacity: 0.5;">
+                                    <span>Low</span>
+                                    <span>Moderate</span>
+                                    <span>High</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weather Forecast Grid -->
+                <div class="card">
+                    <h2>7-Day Forecast</h2>
+                    <div id="forecastContainer">
+                        <div class="forecast-grid">
+                            <div class="forecast-placeholder">
+                                <p>Enable location to see forecast</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Disease Specific Alerts -->
+                <div class="card">
+                    <div>
+                        <h2>More Information</h2>
+                        <p class="subtitle" style="margin-top: 4px; margin-bottom: 16px;">More Insights on the diseases that are likely to develop based on the weather conditions</p>
+                    </div>
+                    <div id="moreInfoContainer">
+                        <div class="forecast-placeholder">
+                            <p>Enable location to view disease information</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Disease Prevention Recommendations -->
+                <div class="card">
+                    <h2>Care Recommendations</h2>
+                    <div id="recommendationsContainer">
+                        <div class="forecast-placeholder">
+                            <p>Enable location to view care recommendations</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Analyze Page -->
             <div class="page active" id="analyzePage">
                 <header>
