@@ -94,6 +94,32 @@ export const ApiService = {
         }
 
         return response.json();
+    },
+
+    async getWeatherByCoordinates(latitude, longitude) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/weather/by-coordinates?latitude=${latitude}&longitude=${longitude}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch weather');
+        }
+
+        return response.json();
+    },
+
+    async getWeatherByCity(city) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/weather/by-city?city=${encodeURIComponent(city)}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to fetch weather');
+        }
+
+        return response.json();
     }
 };
 

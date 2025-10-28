@@ -14,6 +14,8 @@ export function logout() {
     localStorage.removeItem('authToken');
     sessionStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('weatherLocation');
+    localStorage.removeItem('weatherCoordinates');
     clearUser();
     window.location.href = '/login.html';
 }

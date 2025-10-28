@@ -45,7 +45,7 @@ export function showSuccess(message) {
     setTimeout(() => {
         successDiv.classList.remove('show');
         setTimeout(() => successDiv.remove(), 300);
-    }, 3000);
+    }, 4000);
 }
 
 export function showWarning(message) {

@@ -19,6 +19,7 @@ const historyRoutes = require('./routes/history');
 const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
+const weatherRoutes = require('./routes/weather');
 const healthCheckService = require('./services/healthCheck');
 
 // Security middleware
@@ -28,9 +29,9 @@ app.use(helmet({
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com"],
+            imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://*.cloudinary.com", "https://openweathermap.org"],
             scriptSrc: ["'self'", "https://cdn.jsdelivr.net"],
-            connectSrc: ["'self'", "https://res.cloudinary.com", "https://*.cloudinary.com", "https://cdn.jsdelivr.net"]
+            connectSrc: ["'self'", "https://res.cloudinary.com", "https://*.cloudinary.com", "https://cdn.jsdelivr.net", "https://api.openweathermap.org"]
         }
     },
     crossOriginEmbedderPolicy: false
@@ -130,6 +131,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/weather', weatherRoutes);
 app.use('/api/cloudinary', require('./routes/cloudinary'));
 
 // Health check endpoint
