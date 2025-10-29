@@ -12,42 +12,53 @@ const DiseaseDatabase = {
     'healthy': {
         name: 'Healthy',
         severity: 'low',
+        riskCategory: 'Healthy',
+        riskDescription: 'Plant appears to be in good condition.',
         description: 'Plant appears healthy with no visible signs of disease or stress.',
         causes: [],
         treatments: ['Maintain current watering schedule', 'Ensure adequate sunlight', 'Monitor regularly'],
         prevention: ['Regular inspection', 'Proper watering', 'Good drainage']
     },
-    'leaf_spot': {
-        name: 'Leaf Spot',
-        severity: 'medium',
-        description: 'Fungal infection causing circular spots on leaves.',
-        causes: ['High humidity', 'Poor air circulation', 'Overwatering'],
-        treatments: ['Remove affected leaves', 'Apply fungicide treatment', 'Improve ventilation'],
+    'light_leaf_spot': {
+        name: 'Light Leaf Spot',
+        severity: 'low',
+        riskCategory: 'Minor / Easily Treatable',
+        riskDescription: 'Responds well to basic treatment or isolation.',
+        description: 'Early fungal infection causing light spots on leaves. Easily manageable with quick intervention.',
+        causes: ['High humidity', 'Poor air circulation', 'Minor water stress'],
+        treatments: ['Remove affected leaves', 'Apply mild fungicide', 'Improve ventilation'],
         prevention: ['Avoid overhead watering', 'Ensure good air circulation', 'Remove fallen debris']
     },
+
     'root_rot': {
         name: 'Root Rot',
         severity: 'high',
-        description: 'Root system damage from excessive moisture.',
-        causes: ['Overwatering', 'Poor drainage', 'Contaminated soil'],
-        treatments: ['Reduce watering frequency', 'Improve soil drainage', 'Consider repotting'],
-        prevention: ['Well-draining soil', 'Proper watering schedule', 'Monitor soil moisture']
+        riskCategory: 'Difficult / Severe',
+        riskDescription: 'Hard to treat, often requires continuous management.',
+        description: 'Root system damage from excessive moisture. Severe condition requiring immediate intervention and ongoing monitoring.',
+        causes: ['Prolonged overwatering', 'Very poor drainage', 'Contaminated soil'],
+        treatments: ['Significantly reduce watering', 'Repot with fresh soil', 'Remove dead root tissue', 'Consider root treatment fungicide'],
+        prevention: ['Well-draining soil', 'Strict watering schedule', 'Continuous soil moisture monitoring']
     },
     'aloe_rust': {
         name: 'Aloe Rust',
         severity: 'high',
-        description: 'Fungal disease causing rust-colored pustules.',
-        causes: ['High humidity', 'Poor ventilation', 'Infected plant material'],
-        treatments: ['Isolate affected plant', 'Apply fungicide', 'Remove infected tissue'],
-        prevention: ['Quarantine new plants', 'Regular inspection', 'Good air circulation']
+        riskCategory: 'Persistent / Recurrent',
+        riskDescription: 'Commonly reappears even after treatment.',
+        description: 'Fungal disease causing rust-colored pustules. Known for recurring even after treatment, especially in humid climates.',
+        causes: ['High humidity', 'Poor ventilation', 'Infected plant material', 'Warm temperatures'],
+        treatments: ['Isolate affected plant', 'Apply strong fungicide', 'Remove infected tissue', 'Maintain low humidity'],
+        prevention: ['Quarantine new plants', 'Regular inspection', 'Excellent air circulation', 'Climate control']
     },
     'bacterial_soft_rot': {
         name: 'Bacterial Soft Rot',
         severity: 'high',
-        description: 'Bacterial infection causing tissue breakdown.',
-        causes: ['Wounds or damage', 'High moisture', 'Poor hygiene'],
-        treatments: ['Remove damaged tissue', 'Reduce humidity', 'Improve air circulation'],
-        prevention: ['Avoid physical damage', 'Clean tools', 'Proper sanitation']
+        riskCategory: 'Difficult / Severe',
+        riskDescription: 'Hard to treat, often requires continuous management.',
+        description: 'Bacterial infection causing rapid tissue breakdown. Severe condition with high risk of plant loss.',
+        causes: ['Wounds or damage to plant', 'High moisture levels', 'Poor sanitation practices'],
+        treatments: ['Immediately remove damaged tissue', 'Reduce humidity significantly', 'Improve air circulation greatly', 'Apply bactericide'],
+        prevention: ['Avoid physical damage', 'Sanitize all tools', 'Maintain strict hygiene', 'Monitor for entry wounds']
     }
 };
 
@@ -295,6 +306,8 @@ router.get('/diseases/info', (req, res) => {
             key: key,
             name: disease.name,
             severity: disease.severity,
+            riskCategory: disease.riskCategory,
+            riskDescription: disease.riskDescription,
             description: disease.description,
             causes: disease.causes,
             treatments: disease.treatments,
