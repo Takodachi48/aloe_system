@@ -419,11 +419,13 @@ function renderDiseaseRisk() {
         return { disease, risk, score, riskKey };
     }).sort((a, b) => b.score - a.score);
 
-    const riskHTML = diseasesWithScores.map(({ disease, risk, score }) => {
-        const severity = score > 60 ? 'High' : score > 30 ? 'Medium' : 'Low';
-        const alertClass = score > 60 ? 'alert-high' : score > 30 ? 'alert-medium' : 'alert-low';
+    const riskHTML = diseasesWithScores
+        .filter(({ score }) => score > 10) // Filter out very low risk diseases (≤10%)
+        .map(({ disease, risk, score }) => {
+            const severity = score > 60 ? 'High' : score > 30 ? 'Medium' : 'Low';
+            const alertClass = score > 60 ? 'alert-high' : score > 30 ? 'alert-medium' : 'alert-low';
 
-        return `
+            return `
             <div class="alert-item ${alertClass}">
                 <div class="alert-header">
                     <span class="alert-title">${disease.name}</span>
