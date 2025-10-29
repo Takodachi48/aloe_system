@@ -2,9 +2,16 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const database = require('../database/database');
 const { authMiddleware } = require('../middleware/auth');
-const MLService = require('../services/mlService');
+const mlService = require('../services/mlService');
 
 const router = express.Router();
+
+// Logging middleware to log request method and path
+router.use((req, res, next) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${req.method} ${req.path}`);
+    next();
+});
 
 // Map textual severity to numeric score for comparison
 const SEVERITY_SCORE = { healthy: 0, low: 1, medium: 2, high: 3 };
@@ -71,6 +78,47 @@ function generateTasksForDisease(diseaseKey) {
     return plan;
 }
 
+function toArray(value) {
+    if (Array.isArray(value)) return value;
+    if (value === undefined || value === null) return [];
+    return [value];
+}
+
+function normalizePrediction(prediction, source, fallback = {}) {
+    const data = prediction || {};
+    const fallbackData = fallback || {};
+    const diseaseKey = data.diseaseKey || data.disease_key || fallbackData.diseaseKey || fallbackData.disease_key || null;
+    const disease = data.disease || data.disease_name || fallbackData.disease || fallbackData.disease_name || fallbackData.diseaseName || 'Unknown';
+    const rawSeverity = data.severity || fallbackData.severity || fallbackData.disease_severity || 'medium';
+    const severity = typeof rawSeverity === 'string' ? rawSeverity.toLowerCase() : 'medium';
+    const status = data.status || fallbackData.status || null;
+    const confidence = data.confidence ?? fallbackData.confidence ?? null;
+    const description = data.description || fallbackData.description || null;
+    const causes = toArray(data.causes);
+    const treatments = toArray(data.treatments);
+    const prevention = toArray(data.prevention);
+    const fallbackCauses = toArray(fallbackData.causes);
+    const fallbackTreatments = toArray(fallbackData.treatments);
+    const fallbackPrevention = toArray(fallbackData.prevention);
+    const normalizedCauses = causes.length ? causes : fallbackCauses;
+    const normalizedTreatments = treatments.length ? treatments : fallbackTreatments;
+    const normalizedPrevention = prevention.length ? prevention : fallbackPrevention;
+    const allPredictions = data.all_predictions || data.allPredictions || fallbackData.all_predictions || fallbackData.allPredictions || null;
+    return {
+        diseaseKey,
+        disease,
+        severity,
+        status,
+        confidence,
+        description,
+        causes: normalizedCauses,
+        treatments: normalizedTreatments,
+        prevention: normalizedPrevention,
+        allPredictions,
+        source
+    };
+}
+
 // Create a treatment plan from an analysis
 router.post('/', authMiddleware, async (req, res) => {
     try {
@@ -82,6 +130,7 @@ router.post('/', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Healthy analyses do not require treatment plans' });
         }
 
+        const now = new Date();
         const plan = {
             planId: `plan_${uuidv4()}`,
             userId: req.user.userId,
@@ -90,8 +139,9 @@ router.post('/', authMiddleware, async (req, res) => {
             diseaseName,
             cycle: 1,
             status: 'active', // active | completed_success | leaf_removal_recommended
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            createdAt: now,
+            updatedAt: now,
+            cycleStartedAt: now,
             beforePhotoUrl: imageUrl,
             afterPhotoUrl: null,
             remindersEnabled: false,
@@ -127,6 +177,25 @@ router.get('/by-analysis/:analysisId', authMiddleware, async (req, res) => {
     } catch (err) {
         console.error('Get plans by analysis error:', err);
         return res.status(500).json({ success: false, message: 'Failed to fetch plans' });
+    }
+});
+
+// Get single plan by id
+router.get('/:planId', authMiddleware, async (req, res) => {
+    try {
+        console.log('Fetching treatment plan:', req.params.planId, 'for user:', req.user.userId);
+        const plan = await database.getTreatmentPlanById(req.user.userId, req.params.planId);
+        if (!plan) {
+            console.log('Plan not found for user:', req.user.userId, 'planId:', req.params.planId);
+            // Check if plan exists for any user (debug)
+            const anyPlan = await database.db.collection('treatment_plans').findOne({ plan_id: req.params.planId });
+            console.log('Plan exists for any user:', !!anyPlan, anyPlan ? 'user_id: ' + anyPlan.user_id : '');
+            return res.status(404).json({ success: false, message: 'Plan not found' });
+        }
+        return res.json({ success: true, data: plan });
+    } catch (err) {
+        console.error('Get plan error:', err);
+        return res.status(500).json({ success: false, message: 'Failed to fetch plan' });
     }
 });
 
@@ -182,63 +251,176 @@ router.patch('/:planId/reminders', authMiddleware, async (req, res) => {
 // Evaluate improvement by comparing before vs after using ML service
 router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
     try {
+        console.log('Evaluating treatment plan:', req.params.planId, 'for user:', req.user.userId);
         const plan = await database.getTreatmentPlanById(req.user.userId, req.params.planId);
-        if (!plan) return res.status(404).json({ success: false, message: 'Plan not found' });
+        if (!plan) {
+            console.log('Plan not found for evaluation');
+            return res.status(404).json({ success: false, message: 'Plan not found' });
+        }
+        const planId = plan.plan_id || plan.planId || req.params.planId;
+
         // Allow passing after photo URL in request body to avoid race conditions right after upload
         const providedAfterUrl = req.body && (req.body.imageUrl || req.body.afterPhotoUrl);
         const afterUrl = providedAfterUrl || plan.after_photo_url || plan.afterPhotoUrl;
-        if (!afterUrl) return res.status(400).json({ success: false, message: 'After photo not set' });
+        console.log('After URL:', afterUrl, 'Provided in body:', !!providedAfterUrl);
 
-        const ml = new MLService();
-        // Use URL prediction for simplicity
-        const before = await ml.predictFromUrl(plan.before_photo_url || plan.beforePhotoUrl || plan.beforePhotoURL || plan.beforePhoto);
-        const after = await ml.predictFromUrl(afterUrl);
-        if (!before?.success || !after?.success) {
-            return res.status(502).json({ success: false, message: 'ML service error' });
+        if (!afterUrl) {
+            console.log('No after photo URL available');
+            return res.status(400).json({ success: false, message: 'After photo not set' });
         }
 
-        const beforeData = before.data;
-        const afterData = after.data;
-        const beforeScore = SEVERITY_SCORE[beforeData.severity] ?? 2;
-        const afterScore = SEVERITY_SCORE[afterData.severity] ?? 2;
+        // Enforce 7-day window per cycle unless all 7 days are completed
+        const MS_IN_DAY = 24 * 60 * 60 * 1000;
+        const totalDays = Array.isArray(plan.days) && plan.days.length > 0 ? plan.days.length : 7;
+        const cycleStart = plan.cycle_started_at || plan.created_at || plan.updated_at;
+        const elapsedDays = cycleStart ? Math.floor((Date.now() - new Date(cycleStart).getTime()) / MS_IN_DAY) : 0;
+        const allDaysCompleted = Array.isArray(plan.days) && plan.days.length >= totalDays && plan.days.every(d => d.completed);
+
+        console.log('Evaluation timing check:', {
+            totalDays,
+            elapsedDays,
+            allDaysCompleted,
+            cycleStart: cycleStart ? new Date(cycleStart).toISOString() : null
+        });
+
+        if (!allDaysCompleted && elapsedDays < totalDays) {
+            console.log('Evaluation not allowed yet - timing restriction');
+            return res.status(400).json({ success: false, message: `Evaluation allowed after completing day ${totalDays} or ${totalDays} days elapsed` });
+        }
+
+        console.log('Calling ML service for before photo:', plan.before_photo_url || plan.beforePhotoUrl);
+        let before = null;
+        let after = null;
+        let beforeSource = 'fallback';
+        let afterSource = 'fallback';
+
+        try {
+            before = await mlService.predictFromUrl(plan.before_photo_url || plan.beforePhotoUrl || plan.beforePhotoURL || plan.beforePhoto);
+            if (before) {
+                beforeSource = 'ml';
+                console.log('Before prediction result:', before);
+            }
+        } catch (mlErr) {
+            console.log('ML before prediction error:', mlErr.message);
+        }
+
+        try {
+            after = await mlService.predictFromUrl(afterUrl);
+            if (after) {
+                afterSource = 'ml';
+                console.log('After prediction result:', after);
+            }
+        } catch (mlErr) {
+            console.log('ML after prediction error:', mlErr.message);
+        }
+
+        if (!before && plan.analysis_id) {
+            const originalAnalysis = await database.getAnalysisById(plan.analysis_id);
+            if (originalAnalysis) {
+                before = originalAnalysis;
+                beforeSource = 'analysis';
+                console.log('Using analysis history as fallback for before prediction');
+            }
+        }
+
+        if (!before) {
+            const fallbackSeverity = (plan.disease_severity || plan.severity || 'medium').toLowerCase();
+            before = {
+                diseaseKey: plan.disease_key || plan.diseaseKey || null,
+                disease: plan.disease_name || plan.diseaseName || 'Unknown',
+                severity: fallbackSeverity,
+                status: plan.status || null,
+                confidence: plan.confidence ?? null,
+                description: plan.description || null,
+                causes: plan.causes || [],
+                treatments: plan.treatments || [],
+                prevention: plan.prevention || []
+            };
+            beforeSource = 'plan';
+            console.log('Using plan data as fallback for before prediction');
+        }
+
+        if (!after && Array.isArray(plan.evaluations) && plan.evaluations.length > 0) {
+            const lastEval = plan.evaluations[plan.evaluations.length - 1];
+            if (lastEval?.after) {
+                after = lastEval.after;
+                afterSource = 'previous_evaluation';
+                console.log('Using previous evaluation as fallback for after prediction');
+            }
+        }
+
+        if (!after) {
+            after = {
+                disease: before.disease,
+                severity: before.severity,
+                confidence: before.confidence ?? 0
+            };
+            afterSource = 'fallback';
+            console.log('Defaulting after prediction to before data');
+        }
+
+        const planFallback = {
+            diseaseKey: plan.disease_key || plan.diseaseKey || null,
+            disease: plan.disease_name || plan.diseaseName || 'Unknown',
+            severity: plan.disease_severity || plan.severity || 'medium',
+            status: plan.status || null,
+            confidence: plan.confidence ?? null,
+            description: plan.description || null,
+            causes: plan.causes || [],
+            treatments: plan.treatments || [],
+            prevention: plan.prevention || []
+        };
+
+        const beforeDetail = normalizePrediction(before, beforeSource, planFallback);
+        const afterDetail = normalizePrediction(after, afterSource, beforeDetail);
+        const beforeScore = SEVERITY_SCORE[beforeDetail.severity] ?? 2;
+        const afterScore = SEVERITY_SCORE[afterDetail.severity] ?? 2;
+
+        console.log('Severity scores:', { beforeScore, afterScore, beforeSeverity: beforeDetail.severity, afterSeverity: afterDetail.severity });
 
         let outcome = 'same';
         if (afterScore < beforeScore) outcome = 'improved';
         else if (afterScore > beforeScore) outcome = 'worsened';
 
+        console.log('Evaluation outcome:', outcome);
+
         const evaluation = {
             evaluatedAt: new Date(),
-            before: { disease: beforeData.disease, severity: beforeData.severity, confidence: beforeData.confidence },
-            after: { disease: afterData.disease, severity: afterData.severity, confidence: afterData.confidence },
-            outcome
+            outcome,
+            scores: { before: beforeScore, after: afterScore },
+            before: beforeDetail,
+            after: afterDetail
         };
 
         // Update plan based on outcome
         let updatedPlan;
-        if (outcome === 'improved' || (afterData.severity === 'healthy')) {
-            updatedPlan = await database.completeTreatmentPlan(req.user.userId, plan.planId, 'completed_success', evaluation);
+        if (outcome === 'improved' || afterDetail.diseaseKey === 'healthy' || afterDetail.status === 'healthy') {
+            console.log('Completing plan as successful');
+            updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'completed_success', evaluation);
         } else if (outcome === 'worsened') {
             if (plan.cycle === 1) {
-                // Start a new cycle with different tasks
+                console.log('Starting second cycle');
                 const newDays = generateTasksForDisease(plan.diseaseKey).map(d => ({ ...d }));
-                updatedPlan = await database.startSecondCycle(req.user.userId, plan.planId, newDays, evaluation);
+                updatedPlan = await database.startSecondCycle(req.user.userId, planId, newDays, evaluation);
             } else {
-                // Recommend leaf removal
-                updatedPlan = await database.completeTreatmentPlan(req.user.userId, plan.planId, 'leaf_removal_recommended', evaluation);
+                console.log('Recommending leaf removal');
+                updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
             }
         } else {
-            // No change: if first cycle, keep active; if second cycle, recommend removal
+            console.log('No change in condition');
             if (plan.cycle === 1) {
-                updatedPlan = await database.appendEvaluation(req.user.userId, plan.planId, evaluation);
+                updatedPlan = await database.appendEvaluation(req.user.userId, planId, evaluation);
             } else {
-                updatedPlan = await database.completeTreatmentPlan(req.user.userId, plan.planId, 'leaf_removal_recommended', evaluation);
+                updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
             }
         }
 
+        console.log('Evaluation completed successfully');
         return res.json({ success: true, data: updatedPlan, evaluation });
     } catch (err) {
         console.error('Evaluate plan error:', err);
-        return res.status(500).json({ success: false, message: 'Failed to evaluate plan' });
+        console.error('Error stack:', err.stack);
+        return res.status(500).json({ success: false, message: 'Failed to evaluate plan: ' + err.message });
     }
 });
 

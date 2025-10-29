@@ -232,7 +232,8 @@ class Database {
             evaluations: [],
             reminders_enabled: !!plan.remindersEnabled,
             created_at: plan.createdAt,
-            updated_at: plan.updatedAt
+            updated_at: plan.updatedAt,
+            cycle_started_at: plan.cycleStartedAt
         };
         await collection.createIndex({ plan_id: 1 }, { unique: true });
         await collection.createIndex({ user_id: 1, created_at: -1 });
@@ -302,7 +303,7 @@ class Database {
         const result = await collection.findOneAndUpdate(
             { user_id: userId, plan_id: planId },
             {
-                $set: { cycle: 2, days: newDays, updated_at: new Date(), after_photo_url: null },
+                $set: { cycle: 2, days: newDays, updated_at: new Date(), after_photo_url: null, cycle_started_at: new Date() },
                 $push: { evaluations: evaluation }
             },
             { returnDocument: 'after' }
