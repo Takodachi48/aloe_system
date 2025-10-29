@@ -53,13 +53,29 @@ function togglePasswordVisibility(input, button) {
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const email = document.getElementById('loginEmail').value.trim();
+    const emailOrUsername = document.getElementById('loginEmailOrUsername').value.trim();
     const password = document.getElementById('loginPassword').value;
     const rememberMe = document.getElementById('rememberMe').checked;
     
-    if (!email || !password) {
+    if (!emailOrUsername || !password) {
         showMessage('Please fill in all fields', 'error');
         return;
+    }
+    
+    // Determine if the input is an email or username
+    const isEmail = emailOrUsername.includes('@');
+    
+    // Create the request body with only one of email or username
+    const requestBody = {
+        password,
+        rememberMe
+    };
+    
+    // Add either email or username to the request body, not both
+    if (isEmail) {
+        requestBody.email = emailOrUsername.toLowerCase();
+    } else {
+        requestBody.username = emailOrUsername.toLowerCase();
     }
     
     setLoading('loginBtn', true);
@@ -71,7 +87,7 @@ loginForm.addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ email, password, rememberMe })
+            body: JSON.stringify(requestBody)
         });
         
         const data = await response.json();

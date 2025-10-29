@@ -4,7 +4,7 @@ import { showLoading, hideLoading, showError } from '../../utils/ui.js';
 
 const riskCategories = {
     'Minor / Easily Treatable': {
-        color: 'success',
+        color: 'warning',
         description: 'Responds well to basic treatment or isolation.',
         examples: ['Early Rust', 'Light Leaf Spot']
     },

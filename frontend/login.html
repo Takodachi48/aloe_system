@@ -51,13 +51,13 @@
 
                 <form id="loginForm" class="auth-form">
                     <div class="form-group">
-                        <label for="loginEmail" class="form-label">Email Address</label>
+                        <label for="loginEmailOrUsername" class="form-label">Email or Username</label>
                         <div class="input-wrapper">
                             <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
-                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                                <polyline points="22,6 12,13 2,6"></polyline>
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
                             </svg>
-                            <input type="email" id="loginEmail" class="form-input" placeholder="Enter your email" required autocomplete="email">
+                            <input type="text" id="loginEmailOrUsername" class="form-input" placeholder="Enter your email or username" required autocomplete="username">
                         </div>
                     </div>
 
@@ -98,13 +98,13 @@
 
                 <form id="registerForm" class="auth-form" style="display: none;">
                     <div class="form-group">
-                        <label for="registerName" class="form-label">Full Name</label>
+                        <label for="registerName" class="form-label">Username</label>
                         <div class="input-wrapper">
                             <svg class="input-icon" viewBox="0 0 24 24" width="18" height="18">
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                                 <circle cx="12" cy="7" r="4"></circle>
                             </svg>
-                            <input type="text" id="registerName" class="form-input" placeholder="Enter your full name" autocomplete="name">
+                            <input type="text" id="registerName" class="form-input" placeholder="Choose a username" autocomplete="username">
                         </div>
                     </div>
 

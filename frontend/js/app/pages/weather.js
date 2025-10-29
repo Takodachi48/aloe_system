@@ -315,19 +315,18 @@ function renderCurrentWeather() {
                 <button class="btn btn-secondary btn-small" id="setLocationBtn">Change Location</button>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
-                <div style="display: flex; align-items: center; gap: 16px;">
-                    <img src="${iconUrl}" alt="${current.description}" style="width: 80px; height: 80px;">
-                    <div>
-                        <div style="font-size: 32px; font-weight: 700; line-height: 1;">
+            <div style="display: flex; justify-content: center; margin: 20px 0;">
+                <div style="background-color: #4CAF50; border-radius: 12px; padding: 16px 32px; display: flex; align-items: center; gap: 16px; color: white;">
+                    <img src="${iconUrl}" alt="${current.description}" style="width: 64px; height: 64px; filter: brightness(0) invert(1);">
+                    <div style="text-align: center;">
+                        <div style="font-size: 32px; font-weight: 700; line-height: 1.2;">
                             ${Math.round(current.temperature)}°C
                         </div>
-                        <div style="font-size: 14px; color: var(--text-secondary); text-transform: capitalize; margin-top: 4px;">
+                        <div style="font-size: 16px; text-transform: capitalize; opacity: 0.9;">
                             ${current.description}
                         </div>
                     </div>
                 </div>
-                <div></div>
             </div>
 
             <div class="weather-details-grid">
