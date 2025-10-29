@@ -1413,28 +1413,27 @@ h1 {
 }
 
 .forecast-card {
-    background: linear-gradient(135deg, #FFFFFF 0%, #fafafa 100%);
+    background: linear-gradient(135deg, #2E7D32 0%, #4CAF50 100%);
     padding: 16px;
     border-radius: 12px;
-    border: 1px solid #E0E0E0;
-    text-align: center;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1px solid #1B5E20;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    color: white;
 }
 
 .forecast-card:hover {
-    border-color: #A5D6A7;
-    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.15);
+    border-color: #1B5E20;
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
     transform: translateY(-4px);
-    background: linear-gradient(135deg, #FFFFFF 0%, #F5FFF7 100%);
+    background: linear-gradient(135deg, #1B5E20 0%, #2E7D32 100%);
 }
 
 .forecast-detail {
     font-size: 0.85em;
-    color: #2E7D32;
+    color: rgba(255, 255, 255, 0.9);
     margin: 8px 0;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(165, 214, 167, 0.3);
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .forecast-detail:last-child {

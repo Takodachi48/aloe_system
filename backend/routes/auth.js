@@ -18,13 +18,13 @@ router.get('/test', (req, res) => {
 // Register new user
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, username } = req.body;
 
         // Validation
-        if (!name || !email || !password) {
+        if (!name || !email || !password || !username) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide name, email, and password'
+                message: 'Please provide name, username, email, and password'
             });
         }
 
@@ -32,6 +32,15 @@ router.post('/register', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: 'Password must be at least 6 characters long'
+            });
+        }
+
+        // Username validation (alphanumeric with underscores, 3-20 chars)
+        const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!usernameRegex.test(username)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores'
             });
         }
 
@@ -46,13 +55,26 @@ router.post('/register', async (req, res) => {
         const db = getDb();
         const usersCollection = db.collection('users');
 
-        // Check if user already exists
-        const existingUser = await usersCollection.findOne({ email: email.toLowerCase() });
+        // Check if email or username already exists
+        const existingUser = await usersCollection.findOne({
+            $or: [
+                { email: email.toLowerCase() },
+                { username: username.toLowerCase() }
+            ]
+        });
+
         if (existingUser) {
-            return res.status(409).json({
-                success: false,
-                message: 'User with this email already exists'
-            });
+            if (existingUser.email === email.toLowerCase()) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'User with this email already exists'
+                });
+            } else {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Username is already taken'
+                });
+            }
         }
 
         // Hash password
@@ -62,6 +84,7 @@ router.post('/register', async (req, res) => {
         // Create user
         const newUser = {
             name,
+            username: username.toLowerCase(),
             email: email.toLowerCase(),
             password: hashedPassword,
             isAdmin: false,
@@ -85,6 +108,7 @@ router.post('/register', async (req, res) => {
             token,
             user: {
                 id: result.insertedId,
+                username: newUser.username,
                 name: newUser.name,
                 email: newUser.email
             }
@@ -111,25 +135,37 @@ router.post('/register', async (req, res) => {
 // Login user
 router.post('/login', async (req, res) => {
     try {
-        const { email, password, rememberMe } = req.body;
+        const { email, username, password, rememberMe } = req.body;
+        
+        console.log('Login attempt:', { email, username });
 
         // Validation
-        if (!email || !password) {
+        if ((!email && !username) || !password) {
+            console.log('Missing credentials');
             return res.status(400).json({
                 success: false,
-                message: 'Please provide email and password'
+                message: 'Please provide email/username and password'
             });
         }
 
         const db = getDb();
         const usersCollection = db.collection('users');
 
+        // Build query to find user by email or name
+        const query = email 
+            ? { email: email.toLowerCase() }
+            : { name: username.toLowerCase() };
+
         // Find user
-        const user = await usersCollection.findOne({ email: email.toLowerCase() });
+        console.log('Database query:', query);
+        const user = await usersCollection.findOne(query);
+        console.log('User found:', user ? 'Yes' : 'No');
+        
         if (!user) {
+            console.log('User not found with query:', query);
             return res.status(401).json({
                 success: false,
-                message: 'Invalid email or password'
+                message: 'Invalid email/username or password'
             });
         }
 
@@ -143,10 +179,13 @@ router.post('/login', async (req, res) => {
 
         // Check password
         const isPasswordValid = await bcrypt.compare(password, user.password);
+        console.log('Password valid:', isPasswordValid);
+        
         if (!isPasswordValid) {
+            console.log('Invalid password for user:', user.email || user.username);
             return res.status(401).json({
                 success: false,
-                message: 'Invalid email or password'
+                message: 'Invalid email/username or password'
             });
         }
 
@@ -156,11 +195,12 @@ router.post('/login', async (req, res) => {
             { $set: { lastLogin: new Date() } }
         );
 
-        // Generate JWT token with admin status
+        // Generate JWT token with user info
         const expiresIn = rememberMe ? '30d' : JWT_EXPIRES_IN;
         const token = jwt.sign(
             { 
-                userId: user._id, 
+                userId: user._id,
+                username: user.username,
                 email: user.email,
                 isAdmin: user.isAdmin || false
             },
