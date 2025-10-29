@@ -48,6 +48,7 @@ export async function analyzeImage() {
         setProgressBar(100);
         hideLoading();
         
+        AppState.lastAnalysis = analysisResponse.data;
         displayResults(analysisResponse.data);
         showSuccess('Analysis completed successfully!');
         
@@ -97,6 +98,7 @@ export function displayResults(results) {
         </div>` : '';
 
     if (Elements.resultsContainer) {
+        const isHealthy = results.status === 'healthy' || results.diseaseKey === 'healthy' || /healthy/i.test(results.disease || '');
         Elements.resultsContainer.innerHTML = `
             <div class="result-item">
                 <div class="result-label">Detection Result</div>
@@ -114,10 +116,43 @@ export function displayResults(results) {
                 <div class="result-label">Description</div>
                 <div class="result-value" style="font-size: 0.95em; font-weight: 400; line-height: 1.6; margin-top: 4px;">${results.description}</div>
             </div>
+            ${isHealthy ? `
+            <div class="success-message" style="animation-delay: 0.25s">
+                Your plant looks healthy. No treatment plan is needed. Keep up the good care!
+            </div>
+            ` : ''}
             ${causesHTML}
             ${treatmentsHTML}
             ${preventionHTML}
+            ${isHealthy ? '' : `
+            <div class="result-actions" style="margin-top:16px; display:flex; gap:12px;">
+                <button id="createTreatmentPlanBtn" class="btn btn-primary">Create Treatment Plan</button>
+            </div>`}
         `;
+        const btn = document.getElementById('createTreatmentPlanBtn');
+        if (btn && AppState.lastAnalysis) {
+            btn.addEventListener('click', async () => {
+                try {
+                    showLoading('Creating treatment plan...');
+                    const resp = await ApiService.createTreatmentPlan({
+                        analysisId: AppState.lastAnalysis.analysisId,
+                        diseaseKey: AppState.lastAnalysis.diseaseKey,
+                        diseaseName: AppState.lastAnalysis.disease,
+                        imageUrl: AppState.lastAnalysis.imagePath
+                    });
+                    hideLoading();
+                    showSuccess('Treatment plan created');
+                    // Load and show plan in modal
+                    if (resp.success) {
+                        const planId = resp.data.planId;
+                        window.dispatchEvent(new CustomEvent('openTreatmentPlan', { detail: { planId } }));
+                    }
+                } catch (e) {
+                    hideLoading();
+                    showError(e.message);
+                }
+            });
+        }
     }
 }
 

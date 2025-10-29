@@ -151,6 +151,7 @@ function displayAnalysisModal(analysis) {
         </div>` : '';
 
     Elements.modalTitle.textContent = analysis.disease_name || analysis.diseaseName;
+    const isHealthy = analysis.status === 'healthy' || /healthy/i.test(analysis.disease_name || analysis.diseaseName || '');
     
     Elements.modalAnalysisContent.innerHTML = `
         <div class="modal-layout">
@@ -175,10 +176,15 @@ function displayAnalysisModal(analysis) {
                     <div class="result-label">Description</div>
                     <div class="result-value" style="font-size: 0.95em; font-weight: 400; line-height: 1.6; margin-top: 4px;">${analysis.description || ''}</div>
                 </div>
+                ${isHealthy ? `
+                <div class="success-message">
+                    This analysis indicates the plant is healthy. No treatment plan is required.
+                </div>` : ''}
                 ${causesHTML}
                 ${treatmentsHTML}
                 ${preventionHTML}
                 <div style="display: flex; gap: 12px; margin-top: 20px;">
+                    ${isHealthy ? '' : `<button class=\"btn\" data-analysis-id=\"${analysis.analysis_id || analysis.analysisId}\" id=\"viewPlansBtn\" style=\"flex: 1;\">View Treatment Plans</button>`}
                     <button class="btn btn-danger" data-analysis-id="${analysis.analysis_id || analysis.analysisId}" id="modalDeleteBtn" style="flex: 1;">Delete Analysis</button>
                 </div>
             </div>
@@ -204,6 +210,20 @@ function attachModalEventListeners(analysisId) {
     if (deleteBtn) {
         deleteBtn.removeEventListener('click', handleModalDelete);
         deleteBtn.addEventListener('click', handleModalDelete);
+    }
+
+    const viewPlansBtn = document.getElementById('viewPlansBtn');
+    if (viewPlansBtn) {
+        viewPlansBtn.addEventListener('click', async () => {
+            try {
+                const resp = await ApiService.getTreatmentPlansByAnalysis(analysisId);
+                const first = (resp.data || [])[0];
+                if (!first) return showError('No treatment plans for this analysis yet');
+                window.dispatchEvent(new CustomEvent('openTreatmentPlan', { detail: { planId: first.plan_id } }));
+            } catch (err) {
+                showError(err.message);
+            }
+        });
     }
 }
 

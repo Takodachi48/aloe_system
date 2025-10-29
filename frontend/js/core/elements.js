@@ -48,6 +48,12 @@ export const Elements = {
     weatherLocation: document.getElementById('weatherLocation'),
     setLocationBtn: document.getElementById('setLocationBtn'),
     useGeolocationBtn: document.getElementById('useGeolocationBtn')
+    ,
+    treatmentPlanModal: document.getElementById('treatmentPlanModal'),
+    treatmentPlanOverlay: document.getElementById('treatmentPlanOverlay'),
+    treatmentPlanCloseBtn: document.getElementById('treatmentPlanCloseBtn'),
+    treatmentPlanTitle: document.getElementById('treatmentPlanTitle'),
+    treatmentPlanContent: document.getElementById('treatmentPlanContent')
 };
 
 export function getElement(id) {

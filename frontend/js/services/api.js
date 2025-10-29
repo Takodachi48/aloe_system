@@ -121,6 +121,72 @@ export const ApiService = {
 
         return response.json();
     }
+    ,
+    async createTreatmentPlan({ analysisId, diseaseKey, diseaseName, imageUrl }) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ analysisId, diseaseKey, diseaseName, imageUrl })
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to create plan');
+        return response.json();
+    },
+    async getTreatmentPlans(status) {
+        const url = new URL(`${AppState.apiBaseUrl}/api/treatment-plans`);
+        if (status) url.searchParams.set('status', status);
+        const response = await fetch(url.toString(), { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to fetch plans');
+        return response.json();
+    },
+    async getTreatmentPlansByAnalysis(analysisId) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/by-analysis/${analysisId}`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to fetch plans');
+        return response.json();
+    },
+    async toggleTreatmentTask(planId, dayNumber, taskId) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/day/${dayNumber}/task/${taskId}`, {
+            method: 'PATCH',
+            headers: getAuthHeaders()
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to update task');
+        return response.json();
+    },
+    async setAfterPhoto(planId, imageUrl) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/after-photo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ imageUrl })
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to set after photo');
+        return response.json();
+    },
+    async saveTreatmentNotes(planId, dayNumber, notes) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/day/${dayNumber}/notes`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ notes })
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to save notes');
+        return response.json();
+    },
+    async setReminders(planId, enabled) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/reminders`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({ enabled })
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to update reminders');
+        return response.json();
+    },
+    async evaluateTreatmentPlan(planId, imageUrl) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/evaluate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: imageUrl ? JSON.stringify({ imageUrl }) : null
+        });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to evaluate plan');
+        return response.json();
+    }
 };
 
 export default ApiService;
