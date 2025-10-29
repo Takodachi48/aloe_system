@@ -145,6 +145,10 @@ app.get('/api/health', (req, res) => {
 });
 console.log('API routes registered');
 
+// Serve static files from uploads folder
+const uploadsDir = path.join(__dirname, './uploads');
+app.use('/uploads', express.static(uploadsDir));
+
 // Serve static files from frontend folder
 const frontendDir = path.join(__dirname, '../frontend');
 app.use(express.static(frontendDir));

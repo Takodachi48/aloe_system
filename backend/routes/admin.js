@@ -1255,21 +1255,16 @@ router.get('/analytics/hourly-activity', authMiddleware, adminMiddleware, async 
         const db = getDb();
         const analysisCollection = db.collection('analysis_history');
         
-        const oneDayAgo = new Date();
-        oneDayAgo.setDate(oneDayAgo.getDate() - 1);
-        
-        const tzOffsetMs = req.query.tzOffset ? parseInt(req.query.tzOffset) : 0;
+        const tzOffset = parseInt(req.query.tzOffset) || 0;
         
         const data = await analysisCollection.aggregate([
             {
-                $match: {
-                    created_at: { $gte: oneDayAgo }
-                }
-            },
-            {
                 $group: {
                     _id: {
-                        $hour: { $add: ['$created_at', tzOffsetMs] }
+                        $dateToString: { 
+                            format: '%H', 
+                            date: { $add: ['$created_at', tzOffset] }
+                        }
                     },
                     scans: { $sum: 1 }
                 }
@@ -1281,7 +1276,7 @@ router.get('/analytics/hourly-activity', authMiddleware, adminMiddleware, async 
 
         const hourlyData = Array(24).fill(0);
         data.forEach(item => {
-            const hour = ((item._id % 24) + 24) % 24;
+            const hour = parseInt(item._id);
             if (hour >= 0 && hour < 24) {
                 hourlyData[hour] = item.scans;
             }
