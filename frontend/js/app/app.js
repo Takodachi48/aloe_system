@@ -8,6 +8,7 @@ import { loadHistoryPage, viewAnalysis, deleteAnalysis } from './pages/history.j
 import { generateDiseaseGuide } from './pages/diseases.js';
 import { initSettingsPage, loadDarkModeSetting } from './pages/settings.js';
 import { initWeatherPage } from './pages/weather.js';
+import { initTreatmentPlansUI } from './pages/treatmentPlans.js';
 import { updateHeaderForPage } from '../utils/navigation.js';
 import { 
     handleDragOver, 
@@ -80,6 +81,7 @@ class AloeShieldApp {
         initSidebar();
         initSettingsPage();
         initWeatherPage();
+        initTreatmentPlansUI();
         updateHeaderForPage('analyze');
     }
 

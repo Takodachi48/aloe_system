@@ -214,6 +214,137 @@ class Database {
         }
     }
 
+    // Treatment plan methods
+    async createTreatmentPlan(plan) {
+        const collection = this.db.collection('treatment_plans');
+        const doc = {
+            plan_id: plan.planId,
+            user_id: plan.userId,
+            analysis_id: plan.analysisId,
+            disease_key: plan.diseaseKey,
+            disease_name: plan.diseaseName,
+            cycle: plan.cycle,
+            status: plan.status, // active | completed_success | leaf_removal_recommended
+            before_photo_url: plan.beforePhotoUrl,
+            after_photo_url: plan.afterPhotoUrl,
+            days: plan.days,
+            progression: plan.progression,
+            evaluations: [],
+            reminders_enabled: !!plan.remindersEnabled,
+            created_at: plan.createdAt,
+            updated_at: plan.updatedAt
+        };
+        await collection.createIndex({ plan_id: 1 }, { unique: true });
+        await collection.createIndex({ user_id: 1, created_at: -1 });
+        await collection.createIndex({ analysis_id: 1 });
+        await collection.insertOne(doc);
+        return { planId: plan.planId };
+    }
+
+    async getTreatmentPlansByUser(userId, status) {
+        const collection = this.db.collection('treatment_plans');
+        const query = { user_id: userId };
+        if (status) query.status = status;
+        return await collection.find(query).sort({ created_at: -1 }).toArray();
+    }
+
+    async getTreatmentPlansByAnalysis(userId, analysisId) {
+        const collection = this.db.collection('treatment_plans');
+        return await collection.find({ user_id: userId, analysis_id: analysisId }).sort({ created_at: -1 }).toArray();
+    }
+
+    async getTreatmentPlanById(userId, planId) {
+        const collection = this.db.collection('treatment_plans');
+        return await collection.findOne({ user_id: userId, plan_id: planId });
+    }
+
+    async toggleTreatmentTask(userId, planId, dayNumber, taskId) {
+        const collection = this.db.collection('treatment_plans');
+        const plan = await collection.findOne({ user_id: userId, plan_id: planId });
+        if (!plan) throw new Error('Plan not found');
+        const dayIndex = dayNumber - 1;
+        if (!plan.days[dayIndex]) throw new Error('Day not found');
+        const task = plan.days[dayIndex].tasks.find(t => t.id === taskId);
+        if (!task) throw new Error('Task not found');
+        task.completed = !task.completed;
+        plan.days[dayIndex].completed = plan.days[dayIndex].tasks.every(t => t.completed);
+        plan.days[dayIndex].completedAt = plan.days[dayIndex].completed ? new Date() : null;
+        plan.updated_at = new Date();
+        await collection.updateOne({ plan_id: planId }, { $set: { days: plan.days, updated_at: plan.updated_at } });
+        return plan;
+    }
+
+    async setTreatmentAfterPhoto(userId, planId, imageUrl) {
+        const collection = this.db.collection('treatment_plans');
+        const result = await collection.findOneAndUpdate(
+            { user_id: userId, plan_id: planId },
+            { $set: { after_photo_url: imageUrl, updated_at: new Date() } },
+            { returnDocument: 'after' }
+        );
+        return result.value;
+    }
+
+    async completeTreatmentPlan(userId, planId, status, evaluation) {
+        const collection = this.db.collection('treatment_plans');
+        const result = await collection.findOneAndUpdate(
+            { user_id: userId, plan_id: planId },
+            {
+                $set: { status, updated_at: new Date() },
+                $push: { evaluations: evaluation }
+            },
+            { returnDocument: 'after' }
+        );
+        return result.value;
+    }
+
+    async startSecondCycle(userId, planId, newDays, evaluation) {
+        const collection = this.db.collection('treatment_plans');
+        const result = await collection.findOneAndUpdate(
+            { user_id: userId, plan_id: planId },
+            {
+                $set: { cycle: 2, days: newDays, updated_at: new Date(), after_photo_url: null },
+                $push: { evaluations: evaluation }
+            },
+            { returnDocument: 'after' }
+        );
+        return result.value;
+    }
+
+    async appendEvaluation(userId, planId, evaluation) {
+        const collection = this.db.collection('treatment_plans');
+        const result = await collection.findOneAndUpdate(
+            { user_id: userId, plan_id: planId },
+            {
+                $set: { updated_at: new Date() },
+                $push: { evaluations: evaluation }
+            },
+            { returnDocument: 'after' }
+        );
+        return result.value;
+    }
+
+    async saveTreatmentDayNotes(userId, planId, dayNumber, notes) {
+        const collection = this.db.collection('treatment_plans');
+        const plan = await collection.findOne({ user_id: userId, plan_id: planId });
+        if (!plan) throw new Error('Plan not found');
+        const dayIndex = dayNumber - 1;
+        if (!plan.days[dayIndex]) throw new Error('Day not found');
+        plan.days[dayIndex].notes = notes;
+        plan.updated_at = new Date();
+        await collection.updateOne({ plan_id: planId }, { $set: { days: plan.days, updated_at: plan.updated_at } });
+        return plan;
+    }
+
+    async setTreatmentReminders(userId, planId, enabled) {
+        const collection = this.db.collection('treatment_plans');
+        const result = await collection.findOneAndUpdate(
+            { user_id: userId, plan_id: planId },
+            { $set: { reminders_enabled: !!enabled, updated_at: new Date() } },
+            { returnDocument: 'after' }
+        );
+        return result.value;
+    }
+
     async close() {
         try {
             if (this.client) {

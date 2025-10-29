@@ -20,6 +20,7 @@ const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const weatherRoutes = require('./routes/weather');
+const treatmentPlanRoutes = require('./routes/treatmentPlans');
 const healthCheckService = require('./services/healthCheck');
 
 // Security middleware
@@ -132,6 +133,7 @@ app.use('/api/analysis', analysisRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/cloudinary', require('./routes/cloudinary'));
 
 // Health check endpoint

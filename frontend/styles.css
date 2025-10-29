@@ -1159,9 +1159,9 @@ h1 {
     background: white;
     border-radius: 16px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    max-width: 900px;
-    width: 90%;
-    max-height: 90vh;
+    max-width: 1200px;
+    width: 96%;
+    max-height: 95vh;
     overflow-y: auto;
     animation: slideUp 0.3s ease-out;
 }
@@ -1217,6 +1217,8 @@ h1 {
 
 .modal-body {
     padding: 24px;
+    max-height: calc(95vh - 88px);
+    overflow-y: auto;
 }
 
 .modal-layout {
@@ -1239,9 +1241,9 @@ h1 {
     grid-template-columns: 1fr;
     gap: 16px;
     flex: 1;
-    overflow-y: auto;
-    max-height: calc(90vh - 180px);
-    padding-right: 8px;
+    overflow-y: visible; /* remove inner scrollbar */
+    max-height: none; /* allow content to grow; modal-body handles scroll */
+    padding-right: 0;
 }
 
 @media (max-width: 768px) {
