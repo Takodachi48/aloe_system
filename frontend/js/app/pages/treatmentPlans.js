@@ -211,11 +211,19 @@ function renderPlan(plan) {
                     <div class="popup-content" style="background:white; padding:24px; border-radius:8px; max-width:400px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
                         <h3 style="margin:0 0 16px 0; color:#d32f2f;">Leaf Removal Recommended</h3>
                         <p style="margin:0 0 20px 0; line-height:1.5;">To prevent the disease from spreading to other parts of your plant, we strongly recommend cutting off the affected leaf immediately. This is the best way to protect your plant's health.</p>
-                        <button class="btn btn-primary" style="padding:10px 20px;" onclick="this.parentElement.parentElement.parentElement.remove()">I Understand</button>
+                        <button class="btn btn-primary leaf-removal-ack-btn" style="padding:10px 20px;">I Understand</button>
                     </div>
                 </div>
             `;
             document.body.appendChild(popup);
+
+            // Add event listener to the acknowledge button
+            const ackBtn = popup.querySelector('.leaf-removal-ack-btn');
+            if (ackBtn) {
+                ackBtn.addEventListener('click', () => {
+                    popup.remove();
+                });
+            }
         }
     }
 
