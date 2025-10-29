@@ -5,6 +5,41 @@ import { showLoading, hideLoading, showSuccess, showError, setProgressBar, hideP
 import { clearImage, disableAnalyzeButton } from '../../utils/file-handler.js';
 import { loadHistoryPage } from './history.js';
 
+export function resetForNewUpload() {
+    // Reset all analysis state
+    AppState.isAnalyzed = false;
+    AppState.isAnalyzing = false;
+    AppState.lastAnalysis = null;
+    AppState.currentUploadData = null;
+
+    // Clear results
+    if (Elements.resultsContainer) {
+        Elements.resultsContainer.innerHTML = '<div class="results-placeholder">Upload an image to view analysis results</div>';
+    }
+
+    // Reset buttons
+    if (Elements.analyzeBtn) {
+        Elements.analyzeBtn.disabled = true;
+        Elements.analyzeBtn.textContent = 'Analyze Image';
+        Elements.analyzeBtn.style.opacity = '1';
+        Elements.analyzeBtn.style.cursor = 'pointer';
+    }
+
+    if (Elements.clearBtn) {
+        Elements.clearBtn.disabled = true;
+        Elements.clearBtn.style.opacity = '1';
+        Elements.clearBtn.style.cursor = 'pointer';
+    }
+
+    // Clear file input
+    if (Elements.fileInput) {
+        Elements.fileInput.value = '';
+    }
+
+    // Hide progress bar
+    hideProgressBar();
+}
+
 export async function analyzeImage() {
     if (!AppState.currentFile || AppState.isAnalyzing || AppState.isAnalyzed) {
         console.log('Analysis blocked:', {
@@ -40,23 +75,64 @@ export async function analyzeImage() {
         setProgressBar(75);
         
         const analysisResponse = await ApiService.analyzeImage(AppState.currentUploadData);
-        
+
         if (!analysisResponse.success || !analysisResponse.data) {
             throw new Error('Invalid analysis response from server');
         }
-        
+
         setProgressBar(100);
         hideLoading();
-        
+
+        // Check if the detected plant is aloe vera
+        const aloeDiseases = ['healthy', 'light_leaf_spot', 'root_rot', 'aloe_rust', 'bacterial_soft_rot'];
+        const diseaseKey = analysisResponse.data.diseaseKey;
+        const confidence = analysisResponse.data.confidence;
+        console.log('Aloe detection check:', { diseaseKey, confidence, type: typeof confidence, isInArray: aloeDiseases.includes(diseaseKey), confidenceCheck: confidence >= 50 });
+        const isAloeVera = aloeDiseases.includes(diseaseKey) && confidence >= 50;
+
+        if (!isAloeVera) {
+            // Show popup for non-aloe vera detection
+            const popup = document.createElement('div');
+            popup.className = 'aloe-detection-popup';
+            popup.innerHTML = `
+                <div class="popup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+                    <div class="popup-content" style="background:white; padding:24px; border-radius:8px; max-width:400px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <h3 style="margin:0 0 16px 0; color:#f57c00;">Not an Aloe Vera Leaf</h3>
+                        <p style="margin:0 0 20px 0; line-height:1.5;">This app is designed specifically for analyzing aloe vera plants. Please upload a clear photo of an aloe vera leaf to continue.</p>
+                        <button class="btn btn-primary aloe-reset-btn" style="padding:10px 20px;">Upload Aloe Vera Leaf</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            // Add event listener to the reset button
+            const resetBtn = popup.querySelector('.aloe-reset-btn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    popup.remove();
+                    resetForNewUpload();
+                });
+            }
+
+            // Reset state
+            AppState.isAnalyzing = false;
+            if (Elements.analyzeBtn) {
+                Elements.analyzeBtn.disabled = false;
+                Elements.analyzeBtn.textContent = 'Analyze Image';
+            }
+            hideProgressBar();
+            return;
+        }
+
         AppState.lastAnalysis = analysisResponse.data;
         displayResults(analysisResponse.data);
         showSuccess('Analysis completed successfully!');
-        
+
         AppState.isAnalyzed = true;
         disableAnalyzeButton();
-        
+
         await loadHistoryPage(1);
-        
+
         hideProgressBar();
         
     } catch (error) {
