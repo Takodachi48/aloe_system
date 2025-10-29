@@ -154,8 +154,9 @@ function renderPlan(plan) {
     };
 
     const currentDay = getCurrentDay(plan);
-    const totalDays = (plan.days && plan.days.length) ? plan.days.length : 7;
-    const progressPct = Math.round((currentDay - 1) / totalDays * 100);
+    const totalDays = Array.isArray(plan.days) && plan.days.length ? plan.days.length : 7;
+    const completedDays = Array.isArray(plan.days) ? plan.days.filter(d => d.completed).length : 0;
+    const progressPct = totalDays === 0 ? 0 : Math.round((completedDays / totalDays) * 100);
 
     const lastEval = Array.isArray(plan.evaluations) && plan.evaluations.length > 0 ? plan.evaluations[plan.evaluations.length - 1] : null;
     const evaluationSection = renderLatestEvaluation(lastEval);
@@ -180,7 +181,7 @@ function renderPlan(plan) {
             </div>
             <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">${daysHtml}</div>
             <div style="display:flex; gap:12px; margin-top:16px;">
-                ${plan.status === 'active' ? `
+                ${plan.status === 'active' && plan.cycle === 1 ? `
                     ${currentDay >= totalDays ? `
                         <label class="btn btn-secondary" style="cursor:pointer;">
                             <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
@@ -189,10 +190,34 @@ function renderPlan(plan) {
                     ` : `
                         <button class="btn btn-secondary" disabled title="Available after completing Day ${totalDays}">Upload Day ${totalDays} Rescan & Evaluate</button>
                     `}
+                ` : plan.status === 'active' && plan.cycle === 2 ? `
+                    <label class="btn btn-secondary" style="cursor:pointer;">
+                        <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
+                        Upload Day ${totalDays} Rescan & Evaluate
+                    </label>
                 ` : ''}
             </div>
         </div>
     `;
+
+    // Show popup for leaf removal recommendation
+    if (plan.status === 'leaf_removal_recommended') {
+        const existingPopup = document.querySelector('.leaf-removal-popup');
+        if (!existingPopup) {
+            const popup = document.createElement('div');
+            popup.className = 'leaf-removal-popup';
+            popup.innerHTML = `
+                <div class="popup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+                    <div class="popup-content" style="background:white; padding:24px; border-radius:8px; max-width:400px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <h3 style="margin:0 0 16px 0; color:#d32f2f;">Leaf Removal Recommended</h3>
+                        <p style="margin:0 0 20px 0; line-height:1.5;">To prevent the disease from spreading to other parts of your plant, we strongly recommend cutting off the affected leaf immediately. This is the best way to protect your plant's health.</p>
+                        <button class="btn btn-primary" style="padding:10px 20px;" onclick="this.parentElement.parentElement.parentElement.remove()">I Understand</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(popup);
+        }
+    }
 
     // Task toggles
     Elements.treatmentPlanContent.querySelectorAll('input[type="checkbox"]').forEach(box => {

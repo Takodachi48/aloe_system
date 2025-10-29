@@ -258,6 +258,7 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Plan not found' });
         }
         const planId = plan.plan_id || plan.planId || req.params.planId;
+        const planCycle = typeof plan.cycle === 'number' ? plan.cycle : parseInt(plan.cycle, 10) || 1;
 
         // Allow passing after photo URL in request body to avoid race conditions right after upload
         const providedAfterUrl = req.body && (req.body.imageUrl || req.body.afterPhotoUrl);
@@ -392,27 +393,40 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
             after: afterDetail
         };
 
-        // Update plan based on outcome
+        const diseaseKeyForCycle = plan.disease_key || plan.diseaseKey || afterDetail.diseaseKey || beforeDetail.diseaseKey || 'leaf_spot';
+
+        console.log('planCycle:', planCycle, 'outcome:', outcome, 'diseaseKeyForCycle:', diseaseKeyForCycle);
+
         let updatedPlan;
         if (outcome === 'improved' || afterDetail.diseaseKey === 'healthy' || afterDetail.status === 'healthy') {
             console.log('Completing plan as successful');
             updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'completed_success', evaluation);
+            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
+        } else if (planCycle === 1 && (outcome === 'worsened' || outcome === 'same')) {
+            console.log('Starting second cycle');
+            const freshDays = generateTasksForDisease(diseaseKeyForCycle).map(day => ({
+                ...day,
+                completed: false,
+                completedAt: null,
+                notes: '',
+                collapsed: false,
+                tasks: (day.tasks || []).map(task => ({ ...task, completed: false }))
+            }));
+            updatedPlan = await database.startSecondCycle(req.user.userId, planId, freshDays, evaluation);
+            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
         } else if (outcome === 'worsened') {
-            if (plan.cycle === 1) {
-                console.log('Starting second cycle');
-                const newDays = generateTasksForDisease(plan.diseaseKey).map(d => ({ ...d }));
-                updatedPlan = await database.startSecondCycle(req.user.userId, planId, newDays, evaluation);
-            } else {
-                console.log('Recommending leaf removal');
-                updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
-            }
+            console.log('Recommending leaf removal');
+            updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
+            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
+        } else if (planCycle === 1) {
+            console.log('Appending evaluation for cycle 1');
+            updatedPlan = await database.appendEvaluation(req.user.userId, planId, evaluation);
+            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
         } else {
-            console.log('No change in condition');
-            if (plan.cycle === 1) {
-                updatedPlan = await database.appendEvaluation(req.user.userId, planId, evaluation);
-            } else {
-                updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
-            }
+            // Cycle 2 with 'same' outcome - recommend leaf removal
+            console.log('Recommending leaf removal for cycle 2 same outcome');
+            updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
+            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
         }
 
         console.log('Evaluation completed successfully');
