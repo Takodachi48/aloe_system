@@ -143,6 +143,11 @@ export const ApiService = {
         if (!response.ok) throw new Error((await response.json()).message || 'Failed to fetch plans');
         return response.json();
     },
+    async getTreatmentPlan(planId) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}`, { headers: getAuthHeaders() });
+        if (!response.ok) throw new Error((await response.json()).message || 'Failed to fetch plan');
+        return response.json();
+    },
     async toggleTreatmentTask(planId, dayNumber, taskId) {
         const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans/${planId}/day/${dayNumber}/task/${taskId}`, {
             method: 'PATCH',

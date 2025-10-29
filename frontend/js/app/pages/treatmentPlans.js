@@ -7,6 +7,114 @@ function getCurrentDay(plan) {
     return firstIncomplete ? firstIncomplete.day : (plan.days?.length || 7);
 }
 
+const toTitleCase = (value) => {
+    if (!value) return '';
+    return value
+        .toString()
+        .replace(/_/g, ' ')
+        .toLowerCase()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatSeverity = (severity) => {
+    if (!severity) return 'Unknown';
+    return severity.charAt(0).toUpperCase() + severity.slice(1);
+};
+
+const formatPercent = (value) => {
+    if (typeof value !== 'number') return '—';
+    return `${value.toFixed(1)}%`;
+};
+
+const renderInfoRow = (label, value) => {
+    return `
+        <div style="display:flex; justify-content:space-between; gap:12px; font-size:0.85rem;">
+            <span style="color:var(--muted); text-transform:uppercase; letter-spacing:0.08em;">${label}</span>
+            <span style="font-weight:600; text-align:right;">${value}</span>
+        </div>
+    `;
+};
+
+const renderListSection = (title, items) => {
+    if (!Array.isArray(items) || items.length === 0) return '';
+    return `
+        <div style="margin-top:10px;">
+            <div style="color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:0.08em;">${title}</div>
+            <div class="recommendation-list" style="margin-top:6px;">
+                ${items.map(item => `<div class="recommendation-item">• ${item}</div>`).join('')}
+            </div>
+        </div>
+    `;
+};
+
+const renderPredictionChips = (predictions) => {
+    if (!predictions || typeof predictions !== 'object') return '';
+    const entries = Object.entries(predictions).filter(([, value]) => typeof value === 'number');
+    if (entries.length === 0) return '';
+    const topEntries = entries.sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const chips = topEntries.map(([key, value]) => `<span style="background:rgba(56,142,60,0.1); color:#2e7d32; border-radius:999px; padding:4px 10px; font-size:12px; font-weight:600;">${toTitleCase(key)} ${value.toFixed(1)}%</span>`).join('');
+    return `
+        <div style="margin-top:10px;">
+            <div style="color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:0.08em;">Top Probabilities</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">${chips}</div>
+        </div>
+    `;
+};
+
+const renderEvaluationDetailCard = (title, detail = {}) => {
+    if (!detail || Object.keys(detail).length === 0) {
+        return `
+            <div class="card" style="padding:12px;">
+                <div class="result-label">${title}</div>
+                <div style="margin-top:6px; color:var(--muted); font-size:0.85rem;">No data available</div>
+            </div>
+        `;
+    }
+
+    const rows = [
+        renderInfoRow('Disease', detail.disease || 'Unknown'),
+        renderInfoRow('Severity', formatSeverity(detail.severity)),
+        renderInfoRow('Status', detail.status ? toTitleCase(detail.status) : '—'),
+        renderInfoRow('Confidence', formatPercent(detail.confidence)),
+        detail.source ? renderInfoRow('Source', toTitleCase(detail.source)) : ''
+    ].filter(Boolean).join('');
+
+    const descriptionBlock = detail.description ? `<div style="margin-top:10px; font-size:0.9em; color:var(--muted); line-height:1.5;">${detail.description}</div>` : '';
+
+    return `
+        <div class="card" style="padding:12px; display:flex; flex-direction:column; gap:8px;">
+            <div class="result-label">${title}</div>
+            <div style="display:grid; gap:6px;">${rows}</div>
+            ${descriptionBlock}
+            ${renderListSection('Treatments', detail.treatments)}
+            ${renderListSection('Prevention', detail.prevention)}
+            ${renderListSection('Causes', detail.causes)}
+            ${renderPredictionChips(detail.allPredictions)}
+        </div>
+    `;
+};
+
+const renderLatestEvaluation = (evaluation) => {
+    if (!evaluation) return '';
+    const beforeCard = renderEvaluationDetailCard('Before', evaluation.before);
+    const afterCard = renderEvaluationDetailCard('After', evaluation.after);
+    const beforeSeverity = evaluation.before?.severity ? formatSeverity(evaluation.before.severity) : 'Unknown';
+    const afterSeverity = evaluation.after?.severity ? formatSeverity(evaluation.after.severity) : 'Unknown';
+    const severityShift = evaluation.scores ? `${beforeSeverity} → ${afterSeverity}` : '';
+    return `
+        <div class="result-item" style="grid-column:1 / -1;">
+            <div class="result-label">Latest Evaluation</div>
+            <div class="result-value">Outcome: <strong>${toTitleCase(evaluation.outcome)}</strong></div>
+            ${severityShift ? `<div class="confidence-text" style="margin-top:6px;">Severity: ${severityShift}</div>` : ''}
+            ${evaluation.scores ? `<div class="confidence-text" style="margin-top:4px;">Score: ${evaluation.scores.before} → ${evaluation.scores.after}</div>` : ''}
+            <div style="margin-top:12px; display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));">
+                ${beforeCard}
+                ${afterCard}
+            </div>
+        </div>
+    `;
+};
+
 function renderPlan(plan) {
     if (!Elements.treatmentPlanContent) return;
     const daysHtml = plan.days.map(d => {
@@ -46,9 +154,11 @@ function renderPlan(plan) {
     };
 
     const currentDay = getCurrentDay(plan);
-    const progressPct = Math.round((currentDay - 1) / (plan.days.length || 7) * 100);
+    const totalDays = (plan.days && plan.days.length) ? plan.days.length : 7;
+    const progressPct = Math.round((currentDay - 1) / totalDays * 100);
 
     const lastEval = Array.isArray(plan.evaluations) && plan.evaluations.length > 0 ? plan.evaluations[plan.evaluations.length - 1] : null;
+    const evaluationSection = renderLatestEvaluation(lastEval);
     Elements.treatmentPlanContent.innerHTML = `
         <div class="modal-layout">
             <div class="modal-analysis-grid">
@@ -58,30 +168,28 @@ function renderPlan(plan) {
                 <div class="result-item">
                     <div class="result-label">Progress</div>
                     <div class="confidence-bar"><div class="confidence-fill" style="width:${progressPct}%;"></div></div>
-                    <div class="confidence-text">Day ${currentDay} of ${plan.days.length || 7}</div>
+                    <div class="confidence-text">Day ${currentDay} of ${totalDays}</div>
                 </div>
                 <div class="result-item">
                     <div class="result-label">Reminders</div>
                     <button id="reminderToggleBtn" class="btn ${plan.reminders_enabled ? 'btn-primary' : ''}">${plan.reminders_enabled ? 'Reminders On 🔔' : 'Reminders Off 🔕'}</button>
                 </div>
-                ${lastEval ? `
-                <div class=\"result-item\">
-                    <div class=\"result-label\">Latest Evaluation</div>
-                    <div class=\"result-value\">Outcome: <strong>${lastEval.outcome}</strong></div>
-                    <div style=\"margin-top:6px; color:#555; font-size:0.9em;\">
-                        Before: ${lastEval.before.disease} (${lastEval.before.severity}) → After: ${lastEval.after.disease} (${lastEval.after.severity})
-                    </div>
-                </div>` : ''}
+                ${evaluationSection}
                 <div class="result-item"><div class="result-label">Before Photo</div><img src="${plan.before_photo_url}" style="max-width:100%; border-radius:8px;"/></div>
                 ${plan.after_photo_url ? `<div class="result-item"><div class="result-label">After Photo</div><img src="${plan.after_photo_url}" style="max-width:100%; border-radius:8px;"/></div>` : `<div class="result-item"><div class="result-label">After Photo</div><div style="border:2px dashed var(--border); border-radius:8px; padding:16px; color:var(--muted);">Upload your Day 7 rescan to compare</div></div>`}
             </div>
             <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">${daysHtml}</div>
             <div style="display:flex; gap:12px; margin-top:16px;">
-                ${plan.status === 'active' ? `<label class="btn btn-secondary" style="cursor:pointer;">
-                    <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
-                    Upload Day 7 Rescan & Evaluate
-                </label>` : ''}
-                
+                ${plan.status === 'active' ? `
+                    ${currentDay >= totalDays ? `
+                        <label class="btn btn-secondary" style="cursor:pointer;">
+                            <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
+                            Upload Day ${totalDays} Rescan & Evaluate
+                        </label>
+                    ` : `
+                        <button class="btn btn-secondary" disabled title="Available after completing Day ${totalDays}">Upload Day ${totalDays} Rescan & Evaluate</button>
+                    `}
+                ` : ''}
             </div>
         </div>
     `;
@@ -91,7 +199,9 @@ function renderPlan(plan) {
         box.addEventListener('change', async (e) => {
             try {
                 await ApiService.toggleTreatmentTask(plan.plan_id, parseInt(e.target.dataset.day, 10), e.target.dataset.taskId);
-                showSuccess('Updated');
+                // Re-fetch plan and re-render to update progress/collapsed state
+                const refreshed = await ApiService.getTreatmentPlan(plan.plan_id);
+                renderPlan(refreshed.data);
             } catch (err) {
                 showError(err.message);
                 e.target.checked = !e.target.checked;
@@ -126,7 +236,8 @@ function renderPlan(plan) {
             const area = Elements.treatmentPlanContent.querySelector(`textarea[data-notes-day="${day}"]`);
             try {
                 await ApiService.saveTreatmentNotes(plan.plan_id, day, (area?.value || ''));
-                showSuccess('Notes saved');
+                const refreshed = await ApiService.getTreatmentPlan(plan.plan_id);
+                renderPlan(refreshed.data);
             } catch (err) {
                 showError(err.message);
             }
@@ -144,7 +255,18 @@ function renderPlan(plan) {
                 const upload = await ApiService.uploadImage(file, 'analysis');
                 const afterUrl = upload.data.path || upload.data.cloudinaryUrl;
                 await ApiService.setAfterPhoto(plan.plan_id, afterUrl);
-                const evalResp = await ApiService.evaluateTreatmentPlan(plan.plan_id, afterUrl);
+                let evalResp;
+                try {
+                    evalResp = await ApiService.evaluateTreatmentPlan(plan.plan_id, afterUrl);
+                } catch (errEval) {
+                    // If backend hasn't persisted after photo yet, retry once after short delay
+                    if (/After photo not set/i.test(errEval.message)) {
+                        await new Promise(r => setTimeout(r, 600));
+                        evalResp = await ApiService.evaluateTreatmentPlan(plan.plan_id, afterUrl);
+                    } else {
+                        throw errEval;
+                    }
+                }
                 hideLoading();
                 if (evalResp?.evaluation?.outcome) {
                     const outcome = evalResp.evaluation.outcome;
@@ -153,7 +275,8 @@ function renderPlan(plan) {
                 } else {
                     showSuccess('Rescan uploaded and evaluated');
                 }
-                await openTreatmentPlan(plan.plan_id); // reload with latest status/evaluations
+                const refreshed = await ApiService.getTreatmentPlan(plan.plan_id);
+                renderPlan(refreshed.data);
             } catch (err) {
                 hideLoading();
                 showError(err.message);
@@ -180,9 +303,9 @@ function renderPlan(plan) {
 export async function openTreatmentPlan(planId) {
     try {
         showLoading('Loading treatment plan...');
-        const userPlans = await ApiService.getTreatmentPlans();
+        const resp = await ApiService.getTreatmentPlan(planId);
         hideLoading();
-        const plan = (userPlans.data || []).find(p => p.plan_id === planId);
+        const plan = resp.data;
         if (!plan) return showError('Plan not found');
         if (Elements.treatmentPlanTitle) Elements.treatmentPlanTitle.textContent = `Treatment Plan - ${plan.disease_name}`;
         Elements.treatmentPlanModal.classList.add('show');
