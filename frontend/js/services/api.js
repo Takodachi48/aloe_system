@@ -1,6 +1,41 @@
 import { AppState } from '../core/state.js';
 import { getAuthHeaders } from './auth.js';
 
+// Global maintenance state
+export let isMaintenanceMode = false;
+export let maintenanceData = null;
+
+// Function to check maintenance status
+export async function checkMaintenanceStatus() {
+    try {
+        const response = await fetch('/api/status');
+        const data = await response.json();
+        
+        if (data.maintenance) {
+            isMaintenanceMode = true;
+            maintenanceData = data;
+            // Dispatch maintenance event
+            const event = new CustomEvent('maintenance', { detail: data });
+            window.dispatchEvent(event);
+        } else {
+            isMaintenanceMode = false;
+            maintenanceData = null;
+            // Dispatch maintenance end event
+            const event = new CustomEvent('maintenance-end');
+            window.dispatchEvent(event);
+        }
+        
+        return data;
+    } catch (error) {
+        console.error('Error checking maintenance status:', error);
+        return { maintenance: false };
+    }
+}
+
+// Check maintenance status on load and every 30 seconds
+checkMaintenanceStatus();
+setInterval(checkMaintenanceStatus, 30000);
+
 export const ApiService = {
     async uploadImage(file, context = 'analysis') {
         const formData = new FormData();
@@ -13,6 +48,15 @@ export const ApiService = {
         });
 
         if (!response.ok) {
+            // Check for maintenance mode
+            if (response.status === 503) {
+                const maintenanceData = await response.json();
+                isMaintenanceMode = true;
+                const event = new CustomEvent('maintenance', { detail: maintenanceData });
+                window.dispatchEvent(event);
+                throw new Error('maintenance');
+            }
+            
             const error = await response.json();
             throw new Error(error.message || 'Upload failed');
         }
@@ -21,6 +65,10 @@ export const ApiService = {
     },
 
     async analyzeImage(uploadData) {
+        if (isMaintenanceMode) {
+            throw new Error('maintenance');
+        }
+
         const response = await fetch(`${AppState.apiBaseUrl}/api/analysis/analyze`, {
             method: 'POST',
             headers: {
@@ -35,6 +83,14 @@ export const ApiService = {
             })
         });
 
+        if (response.status === 503) {
+            const maintenanceData = await response.json();
+            isMaintenanceMode = true;
+            const event = new CustomEvent('maintenance', { detail: maintenanceData });
+            window.dispatchEvent(event);
+            throw new Error('maintenance');
+        }
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Analysis failed');
@@ -44,9 +100,21 @@ export const ApiService = {
     },
 
     async getAnalysisHistory(page = 1, limit = 20) {
+        if (isMaintenanceMode) {
+            throw new Error('maintenance');
+        }
+
         const response = await fetch(`${AppState.apiBaseUrl}/api/history?page=${page}&limit=${limit}`, {
             headers: getAuthHeaders()
         });
+
+        if (response.status === 503) {
+            const maintenanceData = await response.json();
+            isMaintenanceMode = true;
+            const event = new CustomEvent('maintenance', { detail: maintenanceData });
+            window.dispatchEvent(event);
+            throw new Error('maintenance');
+        }
         
         if (!response.ok) {
             const error = await response.json();

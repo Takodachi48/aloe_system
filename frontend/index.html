@@ -385,6 +385,90 @@
         </div>
     </main>
 
+    <!-- Maintenance Overlay -->
+    <div id="maintenanceOverlay" class="maintenance-overlay" style="display: none;">
+        <div class="maintenance-content">
+            <div class="maintenance-icon">
+                <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#4CAF50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h2>System Maintenance</h2>
+            <p id="maintenanceMessage">The system is currently undergoing scheduled maintenance. We apologize for the inconvenience.</p>
+            <div id="maintenanceTime" class="maintenance-time"></div>
+            <div class="maintenance-progress">
+                <div class="progress-bar">
+                    <div class="progress"></div>
+                </div>
+            </div>
+            <style>
+                .maintenance-overlay {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: rgba(255, 255, 255, 0.95);
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    z-index: 9999;
+                    padding: 20px;
+                }
+                .maintenance-content {
+                    text-align: center;
+                    max-width: 500px;
+                    padding: 40px;
+                    background: white;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+                    position: relative;
+                    border: 1px solid #e0e0e0;
+                }
+                .maintenance-icon {
+                    margin-bottom: 20px;
+                }
+                .maintenance-content h2 {
+                    color: #333;
+                    margin-bottom: 15px;
+                    font-size: 24px;
+                }
+                .maintenance-content p {
+                    color: #666;
+                    margin-bottom: 20px;
+                    line-height: 1.6;
+                }
+                .maintenance-time {
+                    font-size: 16px;
+                    color: #4CAF50;
+                    margin: 15px 0;
+                    font-weight: 500;
+                }
+                .maintenance-progress {
+                    width: 100%;
+                    max-width: 300px;
+                    margin: 20px auto 0;
+                }
+                .progress-bar {
+                    height: 6px;
+                    background: #e0e0e0;
+                    border-radius: 3px;
+                    overflow: hidden;
+                }
+                .progress {
+                    height: 100%;
+                    width: 0%;
+                    background: #4CAF50;
+                    transition: width 0.3s ease;
+                }
+            </style>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/init/maintenance.js"></script>
     <script type="module" src="js/app/app.js"></script>
 </body>
 </html>

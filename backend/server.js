@@ -20,6 +20,7 @@ const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const weatherRoutes = require('./routes/weather');
+const statusRoutes = require('./routes/status');
 const treatmentPlanRoutes = require('./routes/treatmentPlans');
 const healthCheckService = require('./services/healthCheck');
 
@@ -127,6 +128,20 @@ app.use((req, res, next) => {
 
 // API Routes - MUST come before static files and catch-all
 console.log('Registering API routes...');
+
+// Public routes (no auth required)
+app.use('/api/status', statusRoutes);
+
+// Apply maintenance check to all API routes except status
+app.use('/api', (req, res, next) => {
+    // Skip maintenance check for admin routes and status endpoint
+    if (req.path.startsWith('/admin') || req.path === '/status') {
+        return next();
+    }
+    maintenanceMiddleware(req, res, next);
+});
+
+// Protected routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analysis', analysisRoutes);

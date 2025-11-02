@@ -20,10 +20,16 @@ export function logout() {
     window.location.href = '/login.html';
 }
 
+import { isMaintenanceMode } from './api.js';
+
 export async function checkAuthentication() {
     const token = getAuthToken();
     
     if (!token) {
+        // Don't redirect to login if we're in maintenance mode
+        if (isMaintenanceMode) {
+            return false;
+        }
         window.location.href = '/login.html';
         return false;
     }
