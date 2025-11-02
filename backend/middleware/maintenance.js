@@ -1,21 +1,28 @@
-const { getMaintenanceState } = require('../routes/admin');
+const admin = require('../routes/admin');
+const getMaintenanceState = admin.getMaintenanceState;
 
-// Middleware to check maintenance mode
 const maintenanceMiddleware = async (req, res, next) => {
-    // Skip maintenance check for admin routes and maintenance status endpoint
-    if (req.path.startsWith('/api/admin') || 
-        req.path === '/api/auth/verify' ||
-        req.path === '/api/auth/login') {
+
+    const path = req.path.toLowerCase();
+
+    // Always allow login & verify
+    if (
+        path.includes('/auth/login') ||
+        path.includes('/auth/verify') ||
+        path.includes('/status') ||
+        path.includes('/admin') // for admin UI
+    ) {
         return next();
     }
 
     const maintenanceState = getMaintenanceState();
-    
+
     if (maintenanceState.active) {
         return res.status(503).json({
-            success: false,
-            message: maintenanceState.message || 'System is under maintenance. Please try again later.',
+            success: true,
             maintenance: true,
+            message: maintenanceState.message,
+            startDate: maintenanceState.startDate,
             endTime: maintenanceState.endDate
         });
     }
