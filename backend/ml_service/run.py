@@ -6,6 +6,7 @@ Production runner for the ML service using Gunicorn
 import os
 import sys
 
+# Add the current directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from app import app
@@ -17,6 +18,7 @@ if __name__ == '__main__':
     if debug:
         app.run(host='0.0.0.0', port=port, debug=True)
     else:
+        # Production mode with Gunicorn
         import gunicorn.app.base
         
         class StandaloneApplication(gunicorn.app.base.BaseApplication):
