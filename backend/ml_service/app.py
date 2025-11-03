@@ -14,7 +14,9 @@ from PIL import Image
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from tensorflow.keras.applications.efficientnet import preprocess_input
 
+# Optional OpenCV import
 try:
     import cv2
     OPENCV_AVAILABLE = True
@@ -22,19 +24,21 @@ except ImportError:
     OPENCV_AVAILABLE = False
     print("OpenCV not available, using PIL for image processing")
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Disease classes mapping
 DISEASE_CLASSES = {
     0: 'healthy',
-    1: 'leaf_spot', 
+    1: 'leaf_spot',
     2: 'root_rot',
-    3: 'aloe_rust',
-    4: 'bacterial_soft_rot'
+    3: 'sunburn'
 }
 
+# Disease information database
 DISEASE_INFO = {
     'healthy': {
         'name': 'Healthy',
@@ -60,21 +64,14 @@ DISEASE_INFO = {
         'treatments': ['Reduce watering frequency', 'Improve soil drainage', 'Consider repotting'],
         'prevention': ['Well-draining soil', 'Proper watering schedule', 'Monitor soil moisture']
     },
-    'aloe_rust': {
-        'name': 'Aloe Rust',
-        'severity': 'high',
-        'description': 'Fungal disease causing rust-colored pustules.',
-        'causes': ['High humidity', 'Poor ventilation', 'Infected plant material'],
-        'treatments': ['Isolate affected plant', 'Apply fungicide', 'Remove infected tissue'],
-        'prevention': ['Quarantine new plants', 'Regular inspection', 'Good air circulation']
-    },
-    'bacterial_soft_rot': {
-        'name': 'Bacterial Soft Rot',
-        'severity': 'high',
-        'description': 'Bacterial infection causing tissue breakdown.',
-        'causes': ['Wounds or damage', 'High moisture', 'Poor hygiene'],
-        'treatments': ['Remove damaged tissue', 'Reduce humidity', 'Improve air circulation'],
-        'prevention': ['Avoid physical damage', 'Clean tools', 'Proper sanitation']
+
+    'sunburn': {
+        'name': 'Sunburn',
+        'severity': 'medium',
+        'description': 'Tissue damage from excessive sun exposure.',
+        'causes': ['Direct intense sunlight', 'Sudden exposure changes', 'Lack of acclimation'],
+        'treatments': ['Move to shaded area', 'Gradually increase sun exposure', 'Provide adequate water'],
+        'prevention': ['Gradual sun acclimation', 'Provide afternoon shade', 'Monitor light intensity']
     },
     'uncertain': {
         'name': 'Uncertain Diagnosis',
@@ -89,15 +86,17 @@ DISEASE_INFO = {
 class AloeDiseaseClassifier:
     def __init__(self):
         self.model = None
-        self.confidence_threshold = 0.60
+        self.confidence_threshold = 0.60  # 60% minimum confidence
         self.load_model()
     
     def load_model(self):
         """Load the pre-trained CNN model"""
         try:
+            # Try to load best_model.h5 first
             model_path = 'models/best_model.h5'
             
             if not os.path.exists(model_path):
+                # Try alternative path
                 model_path = 'models/final_model.h5'
                 logger.info(f"best_model.h5 not found, trying {model_path}")
             
@@ -107,6 +106,7 @@ class AloeDiseaseClassifier:
                     f"'models/best_model.h5' or 'models/final_model.h5' exists."
                 )
             
+            # Load the trained model
             self.model = keras.models.load_model(model_path)
             logger.info(f"✓ Model loaded successfully from {model_path}")
             logger.info(f"✓ Model input shape: {self.model.input_shape}")
@@ -119,22 +119,27 @@ class AloeDiseaseClassifier:
     def preprocess_image(self, image_data):
         """Preprocess image for model inference"""
         try:
+            # Convert bytes to PIL Image
             if isinstance(image_data, bytes):
                 img = Image.open(io.BytesIO(image_data))
             else:
                 img = image_data
             
+            # Convert to RGB if necessary
             if img.mode != 'RGB':
                 img = img.convert('RGB')
                 logger.info(f"Converted image from {img.mode} to RGB")
             
+            # Resize to model input size (224x224)
             img = img.resize((224, 224), Image.Resampling.LANCZOS)
             
+            # Convert to numpy array
             img_array = np.array(img)
             img_array = np.expand_dims(img_array, axis=0)
-            
-            img_array = img_array.astype('float32') / 255.0
-            
+
+            # Apply EfficientNetB4 preprocessing - MUST match training preprocessing
+            img_array = preprocess_input(img_array.astype('float32'))
+
             logger.info(f"Image preprocessed: shape={img_array.shape}, dtype={img_array.dtype}")
             
             return img_array
@@ -149,14 +154,17 @@ class AloeDiseaseClassifier:
             if self.model is None:
                 raise Exception("Model not loaded. Please check if model file exists.")
             
+            # Preprocess image
             processed_img = self.preprocess_image(image_data)
             if processed_img is None:
                 raise Exception("Failed to preprocess image")
             
+            # Make prediction
             predictions = self.model.predict(processed_img, verbose=0)
             predicted_class = np.argmax(predictions[0])
             confidence = float(predictions[0][predicted_class])
             
+            # Log all predictions for debugging
             logger.info("=" * 50)
             logger.info("Prediction Results:")
             for idx, prob in enumerate(predictions[0]):
@@ -165,6 +173,7 @@ class AloeDiseaseClassifier:
             logger.info(f"Top Prediction: {DISEASE_CLASSES.get(predicted_class)} ({confidence:.2%})")
             logger.info("=" * 50)
             
+            # Check confidence threshold
             if confidence < self.confidence_threshold:
                 logger.warning(f"Low confidence ({confidence:.2%}) - below threshold ({self.confidence_threshold:.2%})")
                 return {
@@ -189,10 +198,13 @@ class AloeDiseaseClassifier:
                     }
                 }
             
+            # Get disease key
             disease_key = DISEASE_CLASSES.get(predicted_class, 'healthy')
             
+            # Get disease information
             disease_info = DISEASE_INFO.get(disease_key, DISEASE_INFO['healthy'])
             
+            # Determine status based on confidence and severity
             if disease_key == 'healthy':
                 status = 'healthy'
             elif confidence > 0.8:
@@ -224,6 +236,7 @@ class AloeDiseaseClassifier:
             logger.error(f"Error making prediction: {e}")
             return None
 
+# Initialize the classifier
 classifier = AloeDiseaseClassifier()
 
 @app.route('/health', methods=['GET'])
@@ -261,6 +274,7 @@ def model_info():
 def predict_disease():
     """Predict aloe disease from image"""
     try:
+        # Check if image is provided
         if 'image' not in request.files:
             return jsonify({
                 'success': False,
@@ -270,6 +284,7 @@ def predict_disease():
         
         image_file = request.files['image']
         
+        # Check if file is empty
         if image_file.filename == '':
             return jsonify({
                 'success': False,
@@ -277,6 +292,7 @@ def predict_disease():
                 'message': 'Please select an image file'
             }), 400
         
+        # Validate file type
         allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp'}
         file_ext = image_file.filename.rsplit('.', 1)[-1].lower()
         if file_ext not in allowed_extensions:
@@ -288,8 +304,10 @@ def predict_disease():
         
         logger.info(f"Processing image: {image_file.filename}")
         
+        # Read image data
         image_data = image_file.read()
         
+        # Make prediction
         result = classifier.predict(image_data)
         
         if result is None:
@@ -328,9 +346,11 @@ def predict_from_url():
         image_url = data['image_url']
         logger.info(f"Downloading image from: {image_url}")
         
+        # Download image from URL
         response = requests.get(image_url, timeout=30)
         response.raise_for_status()
         
+        # Make prediction
         result = classifier.predict(response.content)
         
         if result is None:
