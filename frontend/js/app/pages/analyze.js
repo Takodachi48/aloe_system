@@ -84,11 +84,11 @@ export async function analyzeImage() {
         hideLoading();
 
         // Check if the detected plant is aloe vera
-        const aloeDiseases = ['healthy', 'light_leaf_spot', 'root_rot', 'aloe_rust', 'bacterial_soft_rot'];
+        const aloeDiseases = ['healthy', 'leaf_spot', 'root_rot', 'sunburn'];
         const diseaseKey = analysisResponse.data.diseaseKey;
         const confidence = analysisResponse.data.confidence;
-        console.log('Aloe detection check:', { diseaseKey, confidence, type: typeof confidence, isInArray: aloeDiseases.includes(diseaseKey), confidenceCheck: confidence >= 50 });
-        const isAloeVera = aloeDiseases.includes(diseaseKey) && confidence >= 50;
+        console.log('Aloe detection check:', { diseaseKey, confidence, type: typeof confidence, isInArray: aloeDiseases.includes(diseaseKey), confidenceCheck: confidence >= 60 });
+        const isAloeVera = aloeDiseases.includes(diseaseKey) && confidence >= 60;
 
         if (!isAloeVera) {
             // Show popup for non-aloe vera detection
