@@ -130,7 +130,23 @@ router.post('/profile', authMiddleware, profileUpload.single('image'), async (re
             isActive: true
         };
 
+        // Save upload record to database
         await uploadsCollection.insertOne(uploadRecord);
+
+        // Update user's profile picture in the users collection
+        const usersCollection = db.collection('users');
+        const { ObjectId } = require('mongodb');
+        const userIdObj = new ObjectId(userId);
+        
+        await usersCollection.updateOne(
+            { _id: userIdObj },
+            { 
+                $set: { 
+                    profilePicture: file.path || file.secure_url,
+                    updatedAt: new Date() 
+                } 
+            }
+        );
 
         const uploadData = {
             fileId: fileId,
@@ -138,6 +154,7 @@ router.post('/profile', authMiddleware, profileUpload.single('image'), async (re
             filename: file.filename,
             publicId: publicId,
             size: file.size,
+            profilePictureUrl: file.path || file.secure_url,
             mimetype: file.mimetype,
             path: file.path,
             thumbnailPath: thumbnailUrl,
