@@ -370,15 +370,95 @@
 
             <!-- Settings Page -->
             <div class="page" id="settingsPage">
-                <header>
-                    <h1>Settings</h1>
-                    <p class="subtitle">Configure your preferences</p>
-                </header>
                 
-                <div class="card">
-                    <h2>Application Settings</h2>
-                    <div class="results-placeholder">
-                        Settings panel coming soon...
+                <div class="settings-grid">
+                    <!-- Profile Card -->
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24" width="24" height="24" class="card-icon">
+                                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
+                            </svg>
+                            <h2>Profile Information</h2>
+                        </div>
+                        <div class="card-content">
+                            <div class="profile-picture-upload">
+                                <div class="profile-picture-preview" id="profilePicturePreview">
+                                    <div class="upload-overlay">
+                                        <svg viewBox="0 0 24 24" width="24" height="24">
+                                            <path d="M12 3v18M3 12h18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                                <button class="btn btn-secondary" id="uploadPictureBtn">Change Picture</button>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="settingsEmail">Email Address</label>
+                                <div class="input-with-icon">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" class="input-icon">
+                                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="currentColor"/>
+                                    </svg>
+                                    <input type="email" id="settingsEmail" class="form-control" disabled>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="usernameInput">Username</label>
+                                <div class="input-with-button">
+                                    <div class="input-with-icon">
+                                        <svg viewBox="0 0 24 24" width="18" height="18" class="input-icon">
+                                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="currentColor"/>
+                                        </svg>
+                                        <input type="text" id="usernameInput" class="form-control" placeholder="Enter new username">
+                                    </div>
+                                    <button id="updateUsernameBtn" class="btn btn-primary">Update</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Password Card -->
+                    <div class="settings-card">
+                        <div class="card-header">
+                            <svg viewBox="0 0 24 24" width="24" height="24" class="card-icon">
+                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" fill="currentColor"/>
+                            </svg>
+                            <h2>Change Password</h2>
+                        </div>
+                        <div class="card-content">
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <div class="input-with-icon">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" class="input-icon">
+                                        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" fill="currentColor"/>
+                                    </svg>
+                                    <input type="password" id="currentPassword" class="form-control" placeholder="Enter current password">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <div class="input-with-icon">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" class="input-icon">
+                                        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" fill="currentColor"/>
+                                    </svg>
+                                    <input type="password" id="newPassword" class="form-control" placeholder="Enter new password">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirm New Password</label>
+                                <div class="input-with-icon">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" class="input-icon">
+                                        <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z" fill="currentColor"/>
+                                    </svg>
+                                    <input type="password" id="confirmPassword" class="form-control" placeholder="Confirm new password">
+                                </div>
+                            </div>
+                            
+                            <button id="updatePasswordBtn" class="btn btn-primary btn-block">Update Password</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -468,7 +548,7 @@
     </div>
 
     <!-- Scripts -->
-    <script type="module" src="js/init/maintenance.js"></script>
-    <script type="module" src="js/app/app.js"></script>
+    <script type="module" src="/js/init/maintenance.js"></script>
+    <script type="module" src="/js/app/app.js"></script>
 </body>
 </html>

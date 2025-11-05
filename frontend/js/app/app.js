@@ -6,7 +6,7 @@ import { initSidebar } from './components/sidebar.js';
 import { analyzeImage } from './pages/analyze.js';
 import { loadHistoryPage, viewAnalysis, deleteAnalysis } from './pages/history.js';
 import { generateDiseaseGuide } from './pages/diseases.js';
-import { initSettingsPage, loadDarkModeSetting } from './pages/settings.js';
+import { initSettingsPage } from './pages/settings.js';
 import { initWeatherPage } from './pages/weather.js';
 import { initTreatmentPlansUI } from './pages/treatmentPlans.js';
 import { updateHeaderForPage } from '../utils/navigation.js';
@@ -27,10 +27,17 @@ class AloeShieldApp {
         try {
             console.log('Initializing AloeShield Application...');
             
-            loadDarkModeSetting();
-            
             const authenticated = await checkAuthentication();
             if (!authenticated) return;
+
+            // Update the UI with the current user data
+            if (AppState.user) {
+                console.log('Updating UI with user data:', { 
+                    name: AppState.user.name,
+                    hasProfilePicture: !!AppState.user.profilePicture 
+                });
+                updateUserDisplay();
+            }
 
             this.setupEventListeners();
             this.setupComponents();
