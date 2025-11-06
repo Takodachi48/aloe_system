@@ -465,6 +465,29 @@
         </div>
     </main>
 
+    <!-- Location Input Modal -->
+    <div class="modal" id="locationModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2>Change Location</h2>
+                <button class="modal-close-btn" id="closeLocationModal">&times;</button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label for="locationInput" style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text-primary);">
+                        Enter city name (e.g., "London", "New York"):
+                    </label>
+                    <input type="text" id="locationInput" class="form-input" placeholder="Enter city name" style="width: 100%; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 14px;">
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="btn btn-secondary" id="cancelLocationBtn">Cancel</button>
+                    <button class="btn" id="confirmLocationBtn">Search</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Maintenance Overlay -->
     <div id="maintenanceOverlay" class="maintenance-overlay" style="display: none;">
         <div class="maintenance-content">
