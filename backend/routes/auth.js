@@ -157,10 +157,10 @@ router.post('/login', async (req, res) => {
         const db = getDb();
         const usersCollection = db.collection('users');
 
-        // Build query to find user by email or name
+        // Build query to find user by email or username
         const query = email 
             ? { email: email.toLowerCase() }
-            : { name: username.toLowerCase() };
+            : { username: username.toLowerCase() };
 
         // Find user
         console.log('Database query:', query);
@@ -523,6 +523,66 @@ router.post('/update-password', authMiddleware, async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error updating password: ' + error.message
+        });
+    }
+});
+
+// Verify token - UPDATED to include profile picture
+router.get('/verify', authMiddleware, async (req, res) => {
+    try {
+        console.log('Verify endpoint hit, user from token:', req.user);
+        const db = getDb();
+        const usersCollection = db.collection('users');
+
+        // Convert string ID to ObjectId
+        const { ObjectId } = require('mongodb');
+        const userId = new ObjectId(req.user.userId);
+        
+        console.log('Looking up user with ID:', userId);
+
+        const user = await usersCollection.findOne(
+            { _id: userId },
+            { projection: { password: 0 } }
+        );
+
+        console.log('User found:', user ? 'YES' : 'NO');
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Prepare user response with profile picture
+        const userResponse = {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            createdAt: user.createdAt,
+            lastLogin: user.lastLogin,
+            isAdmin: user.isAdmin || false
+        };
+
+        // Include profile picture if it exists
+        if (user.profilePicture) {
+            userResponse.profilePicture = user.profilePicture;
+            console.log('Included profile picture in response:', user.profilePicture);
+        } else {
+            console.log('No profile picture found for user');
+        }
+
+        console.log('Sending user response:', userResponse);
+        res.json({
+            success: true,
+            user: userResponse
+        });
+
+    } catch (error) {
+        console.error('Error verifying token:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error verifying token: ' + error.message
         });
     }
 });

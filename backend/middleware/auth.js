@@ -7,6 +7,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-pro
  */
 const authMiddleware = (req, res, next) => {
     try {
+        // Generate a unique request ID for this request
+        const requestId = Math.random().toString(36).substring(2, 10);
+        req.requestId = requestId;
+        
+        console.log(`[Auth][${requestId}] New request: ${req.method} ${req.originalUrl}`);
         let token;
         
         // Check for token in Authorization header first
@@ -28,10 +33,16 @@ const authMiddleware = (req, res, next) => {
         }
 
         // Verify token
+        console.log('[Auth] Verifying token...');
         const decoded = jwt.verify(token, JWT_SECRET);
         
         // Attach user info to request
         req.user = decoded;
+        console.log('[Auth] User authenticated:', {
+            userId: decoded.userId,
+            email: decoded.email,
+            isAdmin: decoded.isAdmin || false
+        });
         
         next();
     } catch (error) {

@@ -8,13 +8,28 @@ const {
     getImageInfo 
 } = require('../services/cloudinary');
 const { authMiddleware } = require('../middleware/auth');
-const { getDb } = require('../database/database');
+const { getDb, waitForConnection } = require('../database/database');
 const { v4: uuidv4 } = require('uuid');
+
+// Ensure database connection is established before handling any requests
+const ensureDbConnection = async (req, res, next) => {
+    try {
+        await waitForConnection();
+        next();
+    } catch (error) {
+        console.error('Database connection error:', error);
+        res.status(503).json({
+            error: 'Service Unavailable',
+            message: 'Database connection not available',
+            details: error.message
+        });
+    }
+};
 
 const router = express.Router();
 
 // Analysis upload endpoint - requires authentication
-router.post('/analysis', authMiddleware, analysisUpload.single('image'), async (req, res) => {
+router.post('/analysis', ensureDbConnection, authMiddleware, analysisUpload.single('image'), async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
@@ -93,9 +108,53 @@ router.post('/analysis', authMiddleware, analysisUpload.single('image'), async (
 });
 
 // Profile upload endpoint
-router.post('/profile', authMiddleware, profileUpload.single('image'), async (req, res) => {
+router.post('/profile', ensureDbConnection, authMiddleware, profileUpload.single('image'), async (req, res) => {
+    const requestId = req.requestId || 'no-request-id';
+    const log = (...args) => console.log(`[Upload][${requestId}]`, ...args);
+    
     try {
+        log('Starting profile picture upload');
+        log('Authenticated user:', {
+            userId: req.user?.userId,
+            email: req.user?.email,
+            isAdmin: req.user?.isAdmin || false
+        });
+        
+        // Verify the user making the request matches the session user
+        const sessionToken = req.headers.authorization?.split(' ')[1];
+        if (sessionToken) {
+            try {
+                const db = getDb();
+                const session = await db.collection('sessions').findOne({
+                    'session.token': sessionToken
+                });
+                
+                if (session && session.session?.passport?.user) {
+                    const sessionUserId = session.session.passport.user.toString();
+                    const tokenUserId = req.user.userId.toString();
+                    
+                    log('Session verification:', {
+                        sessionUserId,
+                        tokenUserId,
+                        match: sessionUserId === tokenUserId
+                    });
+                    
+                    if (sessionUserId !== tokenUserId) {
+                        log('WARNING: User ID mismatch between token and session!', {
+                            tokenUserId,
+                            sessionUserId
+                        });
+                    }
+                } else {
+                    log('No valid session found for token');
+                }
+            } catch (error) {
+                log('Error verifying session:', error.message);
+            }
+        }
+        
         if (!req.file) {
+            console.error('[Upload] No file was uploaded');
             return res.status(400).json({
                 error: 'No file uploaded',
                 message: 'Please select an image file to upload'
@@ -106,8 +165,29 @@ router.post('/profile', authMiddleware, profileUpload.single('image'), async (re
         const fileId = uuidv4();
         const userId = req.user.userId;
         
+        console.log('[Upload] File info:', {
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: file.size,
+            path: file.path,
+            filename: file.filename,
+            fieldname: file.fieldname
+        });
+        
         const publicId = file.public_id || file.filename || fileId;
+        console.log('[Upload] Generated public ID:', publicId);
+        
         const thumbnailUrl = createThumbnail(publicId);
+        console.log('[Upload] Thumbnail URL:', thumbnailUrl);
+        
+        // Get the Cloudinary URL - this is the key fix
+        const cloudinaryUrl = file.path || file.secure_url || (file.location ? file.location.href : null);
+        console.log('[Upload] Cloudinary URL:', cloudinaryUrl);
+        
+        if (!cloudinaryUrl) {
+            console.error('[Upload] No Cloudinary URL found in file object:', file);
+            throw new Error('Failed to get Cloudinary URL for the uploaded file');
+        }
 
         const db = getDb();
         const uploadsCollection = db.collection('uploads');
@@ -119,7 +199,7 @@ router.post('/profile', authMiddleware, profileUpload.single('image'), async (re
             originalName: file.originalname,
             filename: file.filename || fileId,
             publicId: publicId,
-            cloudinaryUrl: file.path || file.secure_url,
+            cloudinaryUrl: cloudinaryUrl,
             thumbnailUrl: thumbnailUrl,
             size: file.size,
             mimetype: file.mimetype,
@@ -142,39 +222,58 @@ router.post('/profile', authMiddleware, profileUpload.single('image'), async (re
             { _id: userIdObj },
             { 
                 $set: { 
-                    profilePicture: file.path || file.secure_url,
+                    profilePicture: cloudinaryUrl,  // Use cloudinaryUrl consistently
                     updatedAt: new Date() 
                 } 
             }
         );
 
-        const uploadData = {
-            fileId: fileId,
-            originalName: file.originalname,
-            filename: file.filename,
-            publicId: publicId,
-            size: file.size,
-            profilePictureUrl: file.path || file.secure_url,
-            mimetype: file.mimetype,
-            path: file.path,
-            thumbnailPath: thumbnailUrl,
-            width: file.width,
-            height: file.height,
-            format: file.format,
-            uploadedAt: uploadRecord.uploadedAt.toISOString()
-        };
+        // Get updated user data to return
+        const updatedUser = await usersCollection.findOne(
+            { _id: userIdObj },
+            { projection: { password: 0 } }
+        );
 
+        // Return consistent response structure that frontend expects
         res.json({
             success: true,
             message: 'Profile image uploaded successfully to Cloudinary',
-            data: uploadData
+            data: {
+                fileId: fileId,
+                originalName: file.originalname,
+                filename: file.filename,
+                publicId: publicId,
+                size: file.size,
+                profilePictureUrl: cloudinaryUrl,  // This is what frontend checks
+                mimetype: file.mimetype,
+                path: cloudinaryUrl,
+                thumbnailPath: thumbnailUrl,
+                width: file.width,
+                height: file.height,
+                format: file.format,
+                uploadedAt: uploadRecord.uploadedAt.toISOString()
+            },
+            user: {
+                id: updatedUser._id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                profilePicture: cloudinaryUrl  // Include full user object
+            }
         });
 
     } catch (error) {
-        console.error('Profile upload error:', error);
+        log('Profile upload error:', error);
+        const errorMessage = error.message || 'An error occurred while uploading the profile image';
+        log('Error details:', {
+            name: error.name,
+            stack: error.stack,
+            code: error.code
+        });
+        
         res.status(500).json({
             error: 'Upload failed',
-            message: error.message || 'An error occurred while uploading the profile image'
+            message: errorMessage,
+            requestId: requestId
         });
     }
 });
