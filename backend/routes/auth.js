@@ -195,18 +195,17 @@ router.get('/verify-email/:token', async (req, res) => {
                 emailVerificationToken: token
             });
             
+            const frontendUrl = new URL(process.env.FRONTEND_URL || 'http://localhost:3000');
+            frontendUrl.pathname = '/login';
+            
             if (expiredUser) {
                 console.log('Token exists but is expired');
-                return res.status(400).json({
-                    success: false,
-                    message: 'Verification link has expired. Please request a new one.'
-                });
+                frontendUrl.searchParams.set('error', 'expired');
+                return res.redirect(frontendUrl.toString());
             }
             
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid verification token.'
-            });
+            frontendUrl.searchParams.set('error', 'invalid');
+            return res.redirect(frontendUrl.toString());
         }
 
         console.log('User found, updating verification status...');
@@ -235,18 +234,21 @@ router.get('/verify-email/:token', async (req, res) => {
         
         const authToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 
-        res.json({
-            success: true,
-            message: 'Email verified successfully!',
-            token: authToken,
-            user: {
-                id: user._id,
-                username: user.username,
-                name: user.name,
-                email: user.email,
-                isEmailVerified: true
-            }
+        // Redirect to login page with success message
+        const frontendUrl = new URL(process.env.FRONTEND_URL || 'http://localhost:3000');
+        frontendUrl.pathname = '/login';
+        frontendUrl.searchParams.set('verified', 'true');
+        
+        // Set a session cookie with the auth token
+        res.cookie('authToken', authToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
+        
+        // Redirect to the frontend login page
+        res.redirect(frontendUrl.toString());
 
     } catch (error) {
         console.error('Email verification error:', error);
