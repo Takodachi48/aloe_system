@@ -112,10 +112,71 @@ router.post('/analyze', authMiddleware, async (req, res) => {
         try {
             analysisResult = await mlService.predictFromUrl(uploadRecord.cloudinaryUrl);
             console.log('Analysis result received:', JSON.stringify(analysisResult));
+            
+            // Check if the detected plant is aloe vera
+            const aloeDiseases = ['healthy', 'leaf_spot', 'root_rot', 'sunburn'];
+            const diseaseKey = analysisResult.diseaseKey || '';
+            const confidence = analysisResult.confidence || 0;
+            const predictions = analysisResult.all_predictions || {};
+            
+            // Get top two predictions
+            const sortedPredictions = Object.entries(predictions).sort((a, b) => b[1] - a[1]);
+            const topPrediction = sortedPredictions[0] || [];
+            const secondPrediction = sortedPredictions[1] || [];
+            const confidenceGap = (topPrediction[1] || 0) - (secondPrediction[1] || 0);
+            
+            // Set thresholds
+            const isRootRot = diseaseKey === 'root_rot';
+            const isSunburn = diseaseKey === 'sunburn';
+            const isHealthy = diseaseKey === 'healthy';
+            
+            const minConfidence = isRootRot ? 85 : (
+                isSunburn ? 65 : (
+                    isHealthy ? 75 : 80
+                )
+            );
+            const minGap = isRootRot ? 25 : (
+                isSunburn ? 10 : 20
+            );
+            
+            const isConfidentEnough = confidence >= minConfidence;
+            const hasSignificantGap = confidenceGap >= minGap;
+            const isAloeDisease = aloeDiseases.includes(diseaseKey);
+            const isAloeVera = isAloeDisease && isConfidentEnough && hasSignificantGap;
+            
+            console.log('Aloe verification:', {
+                diseaseKey,
+                confidence,
+                isAloeDisease,
+                minConfidence,
+                minGap,
+                confidenceCheck: isConfidentEnough,
+                confidenceGap,
+                hasSignificantGap,
+                isAloeVera,
+                predictions: sortedPredictions
+            });
+            
+            if (!isAloeVera) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Not an Aloe Vera plant',
+                    message: 'The uploaded image does not appear to be an Aloe Vera plant. Please upload a clear photo of an Aloe Vera leaf.',
+                    analysisData: {
+                        ...analysisResult,
+                        isAloeVera: false
+                    }
+                });
+            }
         } catch (mlError) {
             console.error('ML service error:', mlError.message);
-            analysisResult = mlService.getFallbackPrediction();
-            console.log('Using fallback prediction:', JSON.stringify(analysisResult));
+            if (process.env.NODE_ENV === 'development') {
+                // Only use fallback in development for testing
+                analysisResult = mlService.getFallbackPrediction();
+                console.log('Using fallback prediction in development mode:', JSON.stringify(analysisResult));
+            } else {
+                throw new Error('Failed to analyze the image. Please try again with a clearer photo.');
+            }
         }
 
         // Generate unique analysis ID

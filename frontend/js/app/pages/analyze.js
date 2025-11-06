@@ -83,14 +83,65 @@ export async function analyzeImage() {
         setProgressBar(100);
         hideLoading();
 
-        // Check if the detected plant is aloe vera
+        // Check if the detected plant is aloe vera with sufficient confidence and gap
         const aloeDiseases = ['healthy', 'leaf_spot', 'root_rot', 'sunburn'];
         const diseaseKey = analysisResponse.data.diseaseKey;
         const confidence = analysisResponse.data.confidence;
-        console.log('Aloe detection check:', { diseaseKey, confidence, type: typeof confidence, isInArray: aloeDiseases.includes(diseaseKey), confidenceCheck: confidence >= 60 });
-        const isAloeVera = aloeDiseases.includes(diseaseKey) && confidence >= 60;
+        
+        // Get all predictions and sort by confidence
+        const predictions = analysisResponse.data.all_predictions || {};
+        const sortedPredictions = Object.entries(predictions)
+            .sort((a, b) => b[1] - a[1]);
+            
+        const topPrediction = sortedPredictions[0] || [];
+        const secondPrediction = sortedPredictions[1] || [];
+        
+        const confidenceGap = topPrediction[1] - (secondPrediction[1] || 0);
+        // Adjust thresholds based on disease type
+        const isRootRot = diseaseKey === 'root_rot';
+        const isSunburn = diseaseKey === 'sunburn';
+        const isHealthy = diseaseKey === 'healthy';
+        
+        // Set minimum confidence thresholds
+        const minConfidence = isRootRot ? 85 : (
+            isSunburn ? 65 : (
+                isHealthy ? 75 : 80  // Healthy needs at least 75% confidence
+            )
+        );
+        const minGap = isRootRot ? 25 : (
+            isSunburn ? 10 : 20
+        );
+        
+        const isConfidentEnough = confidence >= minConfidence;
+        const hasSignificantGap = confidenceGap >= minGap;
+        const isAloeDisease = aloeDiseases.includes(diseaseKey);
+        
+        console.log('Aloe detection check:', { 
+            diseaseKey, 
+            confidence, 
+            isAloeDisease,
+            minConfidence: isRootRot ? 85 : (isSunburn ? 65 : (isHealthy ? 75 : 80)),
+            minGap: isRootRot ? 25 : (isSunburn ? 10 : 20),
+            confidenceCheck: isConfidentEnough,
+            confidenceGap,
+            hasSignificantGap,
+            predictions: sortedPredictions,
+            isRootRot
+        });
+        
+        const isAloeVera = isAloeDisease && isConfidentEnough && hasSignificantGap;
 
         if (!isAloeVera) {
+            // Delete the uploaded file since it's not an aloe vera
+            if (AppState.currentUploadData?.filename) {
+                try {
+                    await ApiService.deleteUpload(AppState.currentUploadData.filename);
+                    console.log('Deleted non-aloe image upload');
+                } catch (error) {
+                    console.error('Error deleting non-aloe image:', error);
+                }
+            }
+
             // Show popup for non-aloe vera detection
             const popup = document.createElement('div');
             popup.className = 'aloe-detection-popup';
@@ -116,6 +167,7 @@ export async function analyzeImage() {
 
             // Reset state
             AppState.isAnalyzing = false;
+            AppState.currentUploadData = null;
             if (Elements.analyzeBtn) {
                 Elements.analyzeBtn.disabled = false;
                 Elements.analyzeBtn.textContent = 'Analyze Image';
@@ -124,14 +176,18 @@ export async function analyzeImage() {
             return;
         }
 
-        AppState.lastAnalysis = analysisResponse.data;
-        displayResults(analysisResponse.data);
-        showSuccess('Analysis completed successfully!');
-
-        AppState.isAnalyzed = true;
-        disableAnalyzeButton();
-
-        await loadHistoryPage(1);
+        // Only proceed with saving if it's a confirmed aloe vera image
+        if (isAloeVera) {
+            AppState.lastAnalysis = analysisResponse.data;
+            displayResults(analysisResponse.data);
+            showSuccess('Analysis completed successfully!');
+            AppState.isAnalyzed = true;
+            disableAnalyzeButton();
+            await loadHistoryPage(1);
+        } else {
+            // Reset the upload state if somehow we got here without the previous check catching it
+            resetForNewUpload();
+        }
 
         hideProgressBar();
         
@@ -139,7 +195,36 @@ export async function analyzeImage() {
         hideLoading();
         hideProgressBar();
         console.error('Analysis error:', error);
-        showError('Analysis failed: ' + error.message);
+        
+        // Check if this is a non-aloe image error
+        if (error.isAloeError) {
+            // Show the non-aloe popup
+            const popup = document.createElement('div');
+            popup.className = 'aloe-detection-popup';
+            popup.innerHTML = `
+                <div class="popup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+                    <div class="popup-content" style="background:white; padding:24px; border-radius:8px; max-width:400px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <h3 style="margin:0 0 16px 0; color:#f57c00;">Not an Aloe Vera Leaf</h3>
+                        <p style="margin:0 0 20px 0; line-height:1.5;">${error.message || 'This app is designed specifically for analyzing aloe vera plants. Please upload a clear photo of an aloe vera leaf to continue.'}</p>
+                        <button class="btn btn-primary aloe-reset-btn" style="padding:10px 20px;">Upload Aloe Vera Leaf</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            // Add event listener to the reset button
+            const resetBtn = popup.querySelector('.aloe-reset-btn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    popup.remove();
+                    resetForNewUpload();
+                });
+            }
+        } else {
+            // Show regular error for other types of errors
+            showError('Analysis failed: ' + error.message);
+        }
+        
         AppState.isAnalyzing = false;
         if (Elements.analyzeBtn) {
             Elements.analyzeBtn.disabled = false;
