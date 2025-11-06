@@ -84,10 +84,91 @@ function displayLocationPrompt() {
 }
 
 function promptForLocation() {
-    const city = prompt('Enter city name (e.g., "London", "New York"):');
-    if (city && city.trim()) {
-        loadWeatherByCity(city.trim());
+    const modal = document.getElementById('locationModal');
+    if (!modal) {
+        console.error('Location modal not found!');
+        return;
     }
+    
+    const locationInput = document.getElementById('locationInput');
+    const closeBtn = document.getElementById('closeLocationModal');
+    const cancelBtn = document.getElementById('cancelLocationBtn');
+    const confirmBtn = document.getElementById('confirmLocationBtn');
+    const modalOverlay = modal.querySelector('.modal-overlay');
+    
+    if (!locationInput || !closeBtn || !cancelBtn || !confirmBtn || !modalOverlay) {
+        console.error('One or more modal elements not found!');
+        return;
+    }
+    
+    // Reset and show modal
+    locationInput.value = '';
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Force reflow to ensure the display style is applied before adding the class
+    void modal.offsetWidth;
+    
+    // Add the show class to trigger the animation
+    modal.classList.add('show');
+    
+    // Focus input after a small delay to ensure it's visible
+    setTimeout(() => {
+        if (locationInput) locationInput.focus();
+    }, 100);
+    
+    // Handle confirm button click
+    const handleConfirm = () => {
+        const city = locationInput.value.trim();
+        if (city) {
+            closeModal();
+            loadWeatherByCity(city);
+        }
+    };
+    
+    // Handle Enter key in input
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter') {
+            handleConfirm();
+        }
+    };
+    
+    // Handle Escape key to close modal
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    };
+    
+    // Close modal function
+    const closeModal = () => {
+        modal.classList.remove('show');
+        
+        // Wait for the animation to complete before hiding the modal
+        setTimeout(() => {
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }, 300); // Match this with your CSS transition duration
+        
+        // Remove event listeners
+        if (confirmBtn) confirmBtn.removeEventListener('click', handleConfirm);
+        if (closeBtn) closeBtn.removeEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.removeEventListener('click', closeModal);
+        if (modalOverlay) modalOverlay.removeEventListener('click', closeModal);
+        if (locationInput) locationInput.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('keydown', handleEscape);
+    };
+    
+    // Add event listeners
+    confirmBtn.addEventListener('click', handleConfirm);
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', closeModal);
+    locationInput.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keydown', handleEscape);
+    
+    // Return the closeModal function in case we need to close it programmatically
+    return closeModal;
 }
 
 function useGeolocation() {
