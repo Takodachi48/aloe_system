@@ -93,6 +93,12 @@ export const ApiService = {
 
         if (!response.ok) {
             const error = await response.json();
+            // For non-aloe images, include the error details in the error object
+            if (response.status === 400 && error.error === 'Not an Aloe Vera plant') {
+                const customError = new Error(error.message);
+                customError.isAloeError = true;
+                throw customError;
+            }
             throw new Error(error.message || 'Analysis failed');
         }
 
