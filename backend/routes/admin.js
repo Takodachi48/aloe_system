@@ -415,11 +415,16 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
         const db = getDb();
         const usersCollection = db.collection('users');
         
-        const users = await usersCollection
-            .find({})
-            .project({ password: 0 })
-            .sort({ createdAt: -1 })
-            .toArray();
+        // First get all users with password excluded
+        const users = await usersCollection.find(
+            {},
+            {
+                projection: {
+                    password: 0 // Exclude only the password field
+                },
+                sort: { createdAt: -1 }
+            }
+        ).toArray();
         
         res.json({
             success: true,

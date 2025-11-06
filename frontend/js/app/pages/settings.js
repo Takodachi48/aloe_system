@@ -258,10 +258,8 @@ async function handleProfilePictureUpload(e) {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`
-                // Don't set Content-Type, let the browser set it with the correct boundary
             },
-            body: formData,
-            credentials: 'same-origin' // Include cookies if any
+            body: formData
         });
         
         console.log('Upload response status:', response.status);
@@ -279,60 +277,48 @@ async function handleProfilePictureUpload(e) {
             throw new Error(data.message || `Server returned ${response.status}: ${response.statusText}`);
         }
         
-        // Extract the profile picture URL from the response
-        // The server should return the updated user object with the profilePicture field
-        const updatedUser = data.user || data.data?.user;
-        let profilePictureUrl = updatedUser?.profilePicture || data.data?.profilePictureUrl || data.profilePictureUrl;
+        // Extract the profile picture URL - now with proper structure
+        let profilePictureUrl = null;
+        
+        // Check in order of priority
+        if (data.user && data.user.profilePicture) {
+            profilePictureUrl = data.user.profilePicture;
+        } else if (data.data && data.data.profilePictureUrl) {
+            profilePictureUrl = data.data.profilePictureUrl;
+        } else if (data.data && data.data.path) {
+            profilePictureUrl = data.data.path;
+        }
+        
+        console.log('Extracted profile picture URL:', profilePictureUrl);
         
         if (!profilePictureUrl) {
-            console.warn('No profilePictureUrl in response, checking for image URLs:', data);
-            // Fallback to check for any image URL in the response
-            const responseData = data.data || data;
-            profilePictureUrl = responseData.url || responseData.secure_url || 
-                              (responseData.image && responseData.image.url) ||
-                              (responseData.files && responseData.files[0]?.url);
-            
-            if (!profilePictureUrl && responseData) {
-                // If we still don't have a URL, try to find the first URL in the response
-                const possibleUrl = Object.values(responseData).find(value => 
-                    typeof value === 'string' && 
-                    (value.startsWith('http') || value.startsWith('/'))
-                );
-                
-                if (possibleUrl) {
-                    profilePictureUrl = possibleUrl;
-                }
-            }
-            
-            if (!profilePictureUrl) {
-                throw new Error('No image URL returned from server');
-            }
+            throw new Error('No profile picture URL returned from server');
         }
         
         // Update the user's profile picture in AppState
         if (AppState.user) {
             AppState.user.profilePicture = profilePictureUrl;
             
-            // Update the UI with the new profile picture
-            setProfilePicture(profilePictureUrl);
+            // Save to localStorage
             localStorage.setItem('user', JSON.stringify(AppState.user));
             console.log('Saved updated user data to localStorage');
-            
-            // Notify other components of the update
-            console.log('Dispatching user-updated event with profile picture:', profilePictureUrl);
-            const event = new CustomEvent('user-updated', { 
-                detail: { 
-                    user: AppState.user,
-                    profilePicture: profilePictureUrl
-                },
-                bubbles: true,
-                cancelable: true
-            });
-            window.dispatchEvent(event);
-            console.log('Dispatched user-updated event');
-        } else {
-            console.warn('AppState.user is not available');
         }
+        
+        // Update the UI with the new profile picture
+        setProfilePicture(profilePictureUrl);
+        
+        // Notify other components of the update
+        console.log('Dispatching user-updated event with profile picture:', profilePictureUrl);
+        const event = new CustomEvent('user-updated', { 
+            detail: { 
+                user: AppState.user,
+                profilePicture: profilePictureUrl
+            },
+            bubbles: true,
+            cancelable: true
+        });
+        window.dispatchEvent(event);
+        console.log('Dispatched user-updated event');
         
         showSuccess('Profile picture updated successfully');
         console.log('Profile picture update completed successfully');

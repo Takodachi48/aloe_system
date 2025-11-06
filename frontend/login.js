@@ -131,13 +131,21 @@ registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const name = document.getElementById('registerName').value.trim();
+    const username = document.getElementById('registerUsername').value.trim();
     const email = document.getElementById('registerEmail').value.trim();
     const password = document.getElementById('registerPassword').value;
     const confirmPassword = document.getElementById('confirmPassword').value;
     
     // Validation
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !username || !email || !password || !confirmPassword) {
         showMessage('Please fill in all fields', 'error');
+        return;
+    }
+    
+    // Username validation (alphanumeric with underscores, 3-20 chars)
+    const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+    if (!usernameRegex.test(username)) {
+        showMessage('Username must be 3-20 characters long and can only contain letters, numbers, and underscores', 'error');
         return;
     }
     
@@ -165,7 +173,7 @@ registerForm.addEventListener('submit', async (e) => {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name, email, password })
+            body: JSON.stringify({ name, username, email, password })
         });
         
         const data = await response.json();

@@ -1196,13 +1196,14 @@ function renderUsersTable() {
     const tbody = document.getElementById('usersTableBody');
     
     if (AdminState.users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No users found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No users found</td></tr>';
         return;
     }
     
     tbody.innerHTML = AdminState.users.map(user => `
         <tr class="${user.isActive === false ? 'user-inactive' : ''}" data-user-id="${user._id}">
             <td><strong>${escapeHtml(user.name)}</strong></td>
+            <td>${user.username ? escapeHtml(user.username) : '<span class="text-muted">N/A</span>'}</td>
             <td>${escapeHtml(user.email)}</td>
             <td>
                 <span class="user-role-badge ${user.isActive === false ? 'role-inactive' : (user.isAdmin ? 'role-admin' : 'role-user')}">
