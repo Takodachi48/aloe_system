@@ -4,9 +4,12 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { getDb } = require('../database/database');
 const { authMiddleware } = require('../middleware/auth');
+const { generateVerificationToken } = require('../utils/tokenUtils');
+const { sendVerificationEmail } = require('../services/emailService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-production';
 const JWT_EXPIRES_IN = '7d';
+const EMAIL_VERIFICATION_ENABLED = process.env.EMAIL_VERIFICATION_ENABLED === 'true';
 
 console.log('Auth routes module loaded');
 
@@ -87,6 +90,11 @@ router.post('/register', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
+        // Generate email verification token
+        const emailVerificationToken = generateVerificationToken();
+        const emailVerificationExpires = new Date();
+        emailVerificationExpires.setHours(emailVerificationExpires.getHours() + 24); // 24 hours expiry
+
         // Create user
         const newUser = {
             name,
@@ -95,30 +103,57 @@ router.post('/register', async (req, res) => {
             password: hashedPassword,
             isAdmin: false,
             isActive: true,
+            isEmailVerified: false,
+            emailVerificationToken,
+            emailVerificationExpires,
             createdAt: new Date(),
             updatedAt: new Date()
         };
 
         const result = await usersCollection.insertOne(newUser);
+        const userId = result.insertedId;
 
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: result.insertedId, email: newUser.email },
-            JWT_SECRET,
-            { expiresIn: JWT_EXPIRES_IN }
-        );
+        // If email verification is enabled, send verification email
+        if (EMAIL_VERIFICATION_ENABLED) {
+            try {
+                await sendVerificationEmail(newUser, emailVerificationToken);
+                console.log(`Verification email sent to ${newUser.email}`);
+            } catch (emailError) {
+                console.error('Failed to send verification email:', emailError);
+                // Continue with registration even if email sending fails
+            }
+        }
 
-        res.status(201).json({
+        // Generate JWT token with limited permissions until email is verified
+        const tokenPayload = {
+            userId: userId,
+            email: newUser.email,
+            isVerified: false // Indicates email is not verified yet
+        };
+        
+        const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        const response = {
             success: true,
-            message: 'User registered successfully',
-            token,
+            message: EMAIL_VERIFICATION_ENABLED 
+                ? 'Registration successful! Please check your email to verify your account.' 
+                : 'User registered successfully',
+            requiresVerification: EMAIL_VERIFICATION_ENABLED,
             user: {
-                id: result.insertedId,
+                id: userId,
                 username: newUser.username,
                 name: newUser.name,
-                email: newUser.email
+                email: newUser.email,
+                isEmailVerified: false
             }
-        });
+        };
+
+        // Only include token in response if email verification is disabled
+        if (!EMAIL_VERIFICATION_ENABLED) {
+            response.token = token;
+        }
+
+        res.status(201).json(response);
 
     } catch (error) {
         console.error('Registration error:', error);
@@ -134,6 +169,147 @@ router.post('/register', async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Error registering user: ' + error.message
+        });
+    }
+});
+
+// Verify email with token
+router.get('/verify-email/:token', async (req, res) => {
+    try {
+        console.log('Email verification attempt with token:', req.params.token);
+        const { token } = req.params;
+        const db = getDb();
+        const usersCollection = db.collection('users');
+
+        // Find user with matching verification token
+        console.log('Searching for user with token...');
+        const user = await usersCollection.findOne({
+            emailVerificationToken: token,
+            emailVerificationExpires: { $gt: new Date() }
+        });
+
+        if (!user) {
+            console.log('No user found with this token or token expired');
+            // Try to find if token exists but is expired
+            const expiredUser = await usersCollection.findOne({
+                emailVerificationToken: token
+            });
+            
+            if (expiredUser) {
+                console.log('Token exists but is expired');
+                return res.status(400).json({
+                    success: false,
+                    message: 'Verification link has expired. Please request a new one.'
+                });
+            }
+            
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid verification token.'
+            });
+        }
+
+        console.log('User found, updating verification status...');
+        // Update user as verified
+        const result = await usersCollection.updateOne(
+            { _id: user._id },
+            {
+                $set: {
+                    isEmailVerified: true,
+                    updatedAt: new Date()
+                },
+                $unset: {
+                    emailVerificationToken: "",
+                    emailVerificationExpires: ""
+                }
+            }
+        );
+
+        // Generate new JWT with verified status
+        const tokenPayload = {
+            userId: user._id,
+            email: user.email,
+            isVerified: true,
+            isAdmin: user.isAdmin || false
+        };
+        
+        const authToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+
+        res.json({
+            success: true,
+            message: 'Email verified successfully!',
+            token: authToken,
+            user: {
+                id: user._id,
+                username: user.username,
+                name: user.name,
+                email: user.email,
+                isEmailVerified: true
+            }
+        });
+
+    } catch (error) {
+        console.error('Email verification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred while verifying your email.'
+        });
+    }
+});
+
+// Resend verification email
+router.post('/resend-verification', authMiddleware, async (req, res) => {
+    try {
+        const db = getDb();
+        const usersCollection = db.collection('users');
+        
+        // Get user from database
+        const user = await usersCollection.findOne({ _id: req.user.userId });
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+        
+        if (user.isEmailVerified) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is already verified.'
+            });
+        }
+        
+        // Generate new verification token
+        const emailVerificationToken = generateVerificationToken();
+        const emailVerificationExpires = new Date();
+        emailVerificationExpires.setHours(emailVerificationExpires.getHours() + 24);
+        
+        // Update user with new token
+        await usersCollection.updateOne(
+            { _id: user._id },
+            {
+                $set: {
+                    emailVerificationToken,
+                    emailVerificationExpires,
+                    updatedAt: new Date()
+                }
+            }
+        );
+        
+        // Send verification email
+        await sendVerificationEmail(user, emailVerificationToken);
+        
+        res.json({
+            success: true,
+            message: 'Verification email has been resent. Please check your email.'
+        });
+        
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to resend verification email.'
         });
     }
 });
@@ -175,11 +351,37 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Check if user is active
-        if (user.isActive === false) {
+        // Check if user exists and is active
+        if (!user || !user.isActive) {
+            console.log('Login failed: User not found or inactive');
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid credentials or account is inactive'
+            });
+        }
+
+        // Check email verification status
+        console.log('User verification status:', {
+            email: user.email,
+            isEmailVerified: user.isEmailVerified,
+            verificationRequired: EMAIL_VERIFICATION_ENABLED
+        });
+
+        if (EMAIL_VERIFICATION_ENABLED && !user.isEmailVerified) {
+            console.log('Login blocked: Email not verified');
             return res.status(403).json({
                 success: false,
-                message: 'Account has been deactivated. Please contact an administrator.'
+                requiresVerification: true,
+                message: 'Please verify your email address before logging in. Check your email for a verification link.'
+            });
+        }
+
+        // Check if email is verified if verification is enabled
+        if (EMAIL_VERIFICATION_ENABLED && !user.isEmailVerified) {
+            return res.status(403).json({
+                success: false,
+                requiresVerification: true,
+                message: 'Please verify your email address before logging in. Check your email for a verification link.'
             });
         }
 
