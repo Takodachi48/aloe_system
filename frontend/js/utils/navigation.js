@@ -95,8 +95,13 @@ export function loadSidebarState() {
 }
 
 function updateHeaderOnSidebarToggle() {
-    const header = document.querySelector('.app-header');
+    const header = document.querySelector('.app-header, .admin-header');
     const sidebar = Elements.sidebar;
+    
+    if (!header || !sidebar) {
+        console.warn('Header or sidebar element not found');
+        return;
+    }
     
     if (sidebar.classList.contains('collapsed')) {
         header.classList.add('sidebar-collapsed');

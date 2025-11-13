@@ -117,8 +117,28 @@ class AloeShieldApp {
     }
 }
 
-window.app = new AloeShieldApp();
+// Create global app instance
+const app = new AloeShieldApp();
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.app.init();
-});
+// Expose the app instance globally
+// Export the initializeApp function for use in other modules
+export async function initializeApp() {
+    try {
+        const app = new AloeShieldApp();
+        await app.init();
+        return app;
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        throw error;
+    }
+}
+
+// For backward compatibility
+window.AloeShieldApp = { init: initializeApp };
+
+// Auto-initialize when loaded directly (not as a module)
+if (!window.__esModule) {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp().catch(console.error);
+    });
+}
