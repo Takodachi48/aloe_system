@@ -51,7 +51,6 @@ function displayHistoryItems(items) {
                         <td class="history-date">${new Date(item.created_at).toLocaleDateString()}</td>
                         <td class="history-actions">
                             <button class="btn btn-sm view-analysis-btn" title="View analysis">View</button>
-                            <button class="btn btn-sm btn-danger delete-analysis-btn" title="Delete analysis">Delete</button>
                         </td>
                     </tr>
                 `).join('')}
@@ -71,12 +70,7 @@ function attachHistoryEventListeners() {
         });
     });
 
-    document.querySelectorAll('.delete-analysis-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const analysisId = e.target.closest('tr').getAttribute('data-analysis-id');
-            deleteAnalysis(analysisId);
-        });
-    });
+    // Delete button functionality has been removed
 }
 
 function displayPagination(pagination) {
@@ -209,8 +203,7 @@ function displayAnalysisModal(analysis) {
                 ${treatmentsHTML}
                 ${preventionHTML}
                 <div style="display: flex; gap: 12px; margin-top: 20px;">
-                    ${!isHealthy ? `<button class="btn" data-analysis-id="${analysis.analysis_id || analysis.analysisId || ''}" id="viewPlansBtn" style="flex: 1;">View Treatment Plans</button>` : ''}
-                    <button class="btn btn-danger" data-analysis-id="${analysis.analysis_id || analysis.analysisId || ''}" id="modalDeleteBtn" style="flex: 1;">Delete Analysis</button>
+                    ${!isHealthy ? `<button class="btn" data-analysis-id="${analysis.analysis_id || analysis.analysisId || ''}" id="viewPlansBtn" style="flex: 1; width: 100%;">View Treatment Plans</button>` : ''}
                 </div>
             </div>
         </div>
@@ -354,12 +347,6 @@ function closeModal() {
     } else {
         onTransitionEnd();
     }
-}
-
-function handleModalDelete(e) {
-    const analysisId = e.target.getAttribute('data-analysis-id');
-    closeModal();
-    deleteAnalysis(analysisId);
 }
 
 function showDeleteConfirmation(analysisId) {

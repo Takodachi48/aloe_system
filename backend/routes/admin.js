@@ -539,55 +539,7 @@ router.put('/users/:userId/status', authMiddleware, adminMiddleware, async (req,
     }
 });
 
-// Delete user
-router.delete('/users/:userId', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        
-        // Prevent deleting yourself
-        if (userId === req.user.userId.toString()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot delete your own account'
-            });
-        }
-        
-        const db = getDb();
-        const usersCollection = db.collection('users');
-        
-        // Check if user is admin and if they're the last admin
-        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-        if (user && user.isAdmin) {
-            const adminCount = await usersCollection.countDocuments({ isAdmin: true });
-            if (adminCount <= 1) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Cannot delete the last administrator'
-                });
-            }
-        }
-        
-        const result = await usersCollection.deleteOne({ _id: new ObjectId(userId) });
-        
-        if (result.deletedCount === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'User deleted successfully'
-        });
-    } catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting user'
-        });
-    }
-});
+// User deletion functionality has been removed
 
 // Get all announcements
 router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) => {
