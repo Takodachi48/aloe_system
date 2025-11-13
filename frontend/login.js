@@ -115,7 +115,7 @@ loginForm.addEventListener('submit', async (e) => {
             if (data.user.isAdmin) {
                 window.location.href = '/admin.html';
             } else {
-                window.location.href = '/';
+                window.location.href = '/app';
             }
         }, 500);
         
@@ -252,7 +252,9 @@ function isValidEmail(email) {
 // Check if user is already logged in
 function checkAuth() {
     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    if (token) {
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    if (token && user) {
         // Verify token is still valid
         fetch(`${apiBaseUrl}/api/auth/verify`, {
             headers: {
@@ -261,14 +263,21 @@ function checkAuth() {
         })
         .then(response => {
             if (response.ok) {
-                window.location.href = '/index.html';
+                // Redirect based on user role
+                if (user.isAdmin) {
+                    window.location.href = '/admin.html';
+                } else {
+                    window.location.href = '/app';
+                }
             } else {
+                // Clear invalid auth data
                 localStorage.removeItem('authToken');
                 sessionStorage.removeItem('authToken');
                 localStorage.removeItem('user');
             }
         })
         .catch(() => {
+            // Clear auth data on error
             localStorage.removeItem('authToken');
             sessionStorage.removeItem('authToken');
             localStorage.removeItem('user');
