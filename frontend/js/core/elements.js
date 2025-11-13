@@ -49,6 +49,8 @@ export const Elements = {
     get logoutConfirmationOverlay() { return getElement('logoutConfirmationOverlay'); },
     get logoutConfirmationCancel() { return getElement('logoutConfirmationCancel'); },
     get logoutConfirmationConfirm() { return getElement('logoutConfirmationConfirm'); },
+    get headerPageTitle() { return getElement('headerPageTitle'); },
+    get headerPageSubtitle() { return getElement('headerPageSubtitle'); },
     get currentWeatherContainer() { return getElement('currentWeatherContainer'); },
     get diseaseRiskContainer() { return getElement('diseaseRiskContainer'); },
     get forecastContainer() { return getElement('forecastContainer'); },

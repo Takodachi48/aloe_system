@@ -41,7 +41,10 @@ class AloeShieldApp {
 
             this.setupEventListeners();
             this.setupComponents();
-            
+
+            // Navigate to page based on URL parameter
+            this.navigateFromUrl();
+
             this.initialized = true;
             console.log('AloeShield Application Initialized Successfully');
         } catch (error) {
@@ -114,6 +117,32 @@ class AloeShieldApp {
 
     updateUserDisplay() {
         updateUserDisplay();
+    }
+
+    navigateFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page');
+        
+        if (page) {
+            // Navigate to the specified page
+            const navItem = document.querySelector(`[data-page="${page}"]`);
+            if (navItem) {
+                navItem.click();
+            }
+        } else if (window.location.pathname.endsWith('forum.html')) {
+            // If on forum page, ensure forum nav item is active
+            const forumNav = document.querySelector('[data-page="forum"]');
+            if (forumNav) {
+                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                forumNav.classList.add('active');
+            }
+        } else {
+            // Default to analyze page
+            const analyzeNav = document.querySelector('[data-page="analyze"]');
+            if (analyzeNav) {
+                analyzeNav.click();
+            }
+        }
     }
 }
 
