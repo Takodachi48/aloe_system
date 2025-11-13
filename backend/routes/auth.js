@@ -418,10 +418,11 @@ router.post('/login', async (req, res) => {
             { expiresIn }
         );
 
-        // Include profile picture in the response if it exists
+        // Include profile picture and username in the response if they exist
         const userResponse = {
             id: user._id,
             name: user.name,
+            username: user.username,  // Add username to the response
             email: user.email,
             isAdmin: user.isAdmin || false
         };
@@ -473,14 +474,23 @@ router.get('/verify', authMiddleware, async (req, res) => {
             });
         }
 
+        // Build user response with all necessary fields
+        const userResponse = {
+            id: user._id,
+            name: user.name,
+            username: user.username,  // Include username
+            email: user.email,
+            isAdmin: user.isAdmin || false
+        };
+
+        // Include profile picture if it exists
+        if (user.profilePicture) {
+            userResponse.profilePicture = user.profilePicture;
+        }
+
         res.json({
             success: true,
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                isAdmin: user.isAdmin || false
-            }
+            user: userResponse
         });
 
     } catch (error) {
@@ -507,7 +517,7 @@ console.log('- POST /auth/update-username');
 console.log('- POST /auth/update-profile');
 console.log('- POST /auth/update-password');
 
-// Update profile name
+// Update profile username
 router.post('/update-profile', authMiddleware, async (req, res) => {
     try {
         console.log('Update profile request received:', { 
@@ -515,26 +525,26 @@ router.post('/update-profile', authMiddleware, async (req, res) => {
             body: req.body 
         });
         
-        const { name } = req.body;
+        const { username } = req.body;
         const userId = req.user.userId;
 
         // Validation
-        if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        if (!username || typeof username !== 'string' || username.trim().length === 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Please provide a valid name'
+                message: 'Please provide a valid username'
             });
         }
         
-        // Clean up the name
-        const cleanName = name.trim();
+        // Clean up the username
+        const cleanUsername = username.trim();
         
-        // Name validation (allow letters, numbers, spaces, hyphens, and apostrophes)
-        const nameRegex = /^[a-zA-Z0-9\s'-]+$/;
-        if (!nameRegex.test(cleanName)) {
+        // Username validation (alphanumeric with underscores, 3-20 chars)
+        const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!usernameRegex.test(cleanUsername)) {
             return res.status(400).json({
                 success: false,
-                message: 'Name can only contain letters, numbers, spaces, hyphens, and apostrophes'
+                message: 'Username must be 3-20 characters long and can only contain letters, numbers, and underscores'
             });
         }
 
@@ -554,7 +564,20 @@ router.post('/update-profile', authMiddleware, async (req, res) => {
             });
         }
         
-        // First get the current user data
+        // Check if username is already taken by another user
+        const existingUser = await usersCollection.findOne({ 
+            username: cleanUsername,
+            _id: { $ne: userIdObj } // Exclude current user
+        });
+        
+        if (existingUser) {
+            return res.status(409).json({
+                success: false,
+                message: 'Username is already taken'
+            });
+        }
+
+        // Get the current user data
         const currentUser = await usersCollection.findOne({ _id: userIdObj });
         
         if (!currentUser) {
@@ -567,12 +590,12 @@ router.post('/update-profile', authMiddleware, async (req, res) => {
 
         console.log('Updating username for user:', currentUser.email);
         
-        // Update the name in the database
+        // Update the username in the database
         const result = await usersCollection.updateOne(
             { _id: userIdObj },
             { 
                 $set: { 
-                    name: cleanName,
+                    username: cleanUsername,
                     updatedAt: new Date() 
                 } 
             }
@@ -592,7 +615,7 @@ router.post('/update-profile', authMiddleware, async (req, res) => {
             { 
                 userId: currentUser._id, 
                 email: currentUser.email, 
-                name: cleanName,
+                username: cleanUsername,
                 isAdmin: currentUser.isAdmin || false 
             }, 
             JWT_SECRET, 
@@ -614,25 +637,27 @@ router.post('/update-profile', authMiddleware, async (req, res) => {
         const userResponse = {
             id: updatedUser._id,
             name: updatedUser.name,
-            email: updatedUser.email
+            username: updatedUser.username,
+            email: updatedUser.email,
+            isAdmin: updatedUser.isAdmin || false
         };
 
         console.log('Sending response with user data:', userResponse);
-        console.log('New token generated with name:', cleanName);
+        console.log('New token generated with username:', cleanUsername);
 
         // Return success response with new token and user data
         res.json({
             success: true,
-            message: 'Name updated successfully',
+            message: 'Username updated successfully',
             token,
             user: userResponse
         });
 
     } catch (error) {
-        console.error('Error updating name:', error);
+        console.error('Error updating username:', error);
         res.status(500).json({
             success: false,
-            message: 'Error updating name: ' + error.message
+            message: `Error updating username: ${error.message}`
         });
     }
 });

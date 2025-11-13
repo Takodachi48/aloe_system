@@ -16,12 +16,7 @@ const riskCategories = {
     'Difficult / Severe': {
         color: 'danger',
         description: 'Hard to treat, often requires continuous management.',
-        examples: ['Root Rot', 'Bacterial Soft Rot']
-    },
-    'Persistent / Recurrent': {
-        color: 'danger',
-        description: 'Commonly reappears even after treatment.',
-        examples: ['Aloe Rust (in humid climates)']
+        examples: ['Root Rot', 'Sunburn']
     }
 };
 
@@ -86,10 +81,46 @@ export async function generateDiseaseGuide() {
         const response = await ApiService.getDiseaseInfo();
         hideLoading();
 
-        const guideHTML = response.data.map(disease => {
+        // Filter out unwanted diseases and add Sunburn if not present
+        const filteredDiseases = response.data.filter(disease => 
+            disease.key !== 'aloe_rust' && disease.key !== 'bacterial_soft_rot'
+        );
+
+        // Add Sunburn if not present
+        if (!filteredDiseases.some(d => d.key === 'sunburn')) {
+            filteredDiseases.push({
+                key: 'sunburn',
+                name: 'Sunburn',
+                riskCategory: 'Difficult / Severe',
+                riskDescription: 'Caused by excessive exposure to direct sunlight, especially in hot conditions.',
+                description: 'Sunburn occurs when aloe plants are exposed to too much direct sunlight, particularly during hot weather. The leaves develop brown, dry, and crispy patches that can lead to permanent damage if not addressed.',
+                causes: [
+                    'Sudden exposure to intense sunlight after being in shade',
+                    'Hot weather conditions with high UV index',
+                    'Lack of proper acclimatization to sunlight',
+                    'Reflective surfaces increasing sun exposure'
+                ],
+                treatments: [
+                    'Move the plant to a shadier location immediately',
+                    'Gradually acclimate the plant to brighter conditions',
+                    'Remove severely damaged leaves to prevent infection',
+                    'Water the plant thoroughly as sunburn can increase water loss'
+                ],
+                prevention: [
+                    'Gradually introduce aloe plants to increased sunlight over 1-2 weeks',
+                    'Provide afternoon shade in hot climates',
+                    'Use shade cloth during heatwaves or intense sun periods',
+                    'Rotate potted plants regularly for even light exposure'
+                ]
+            });
+        }
+
+        const guideHTML = filteredDiseases.map(disease => {
             const diseaseFolder = disease.key;
+            // Use .jpeg extension for sunburn images, .jpg for others
+            const fileExtension = diseaseFolder === 'sunburn' ? 'jpeg' : 'jpg';
             const thumbnailImages = [1, 2, 3, 4].map(i => 
-                `/uploads/thumbnails/${diseaseFolder}/${i}.jpg`
+                `/uploads/thumbnails/${diseaseFolder}/${i}.${fileExtension}`
             );
             
             return `

@@ -81,8 +81,9 @@ export function initSettingsPage() {
     }
     
     const usernameInput = document.getElementById('usernameInput');
-    if (usernameInput && AppState.user?.name) {
-        usernameInput.value = AppState.user.name;
+    if (usernameInput) {
+        // Show username if available, otherwise show name as fallback
+        usernameInput.value = AppState.user?.username || AppState.user?.name || '';
     }
     
     // Set up profile picture preview
@@ -342,11 +343,11 @@ async function handleNameUpdate(e) {
     e.preventDefault();
     
     const updateBtn = document.getElementById('updateUsernameBtn');
-    const nameInput = document.getElementById('usernameInput');
-    const newName = nameInput?.value.trim();
+    const usernameInput = document.getElementById('usernameInput');
+    const newUsername = usernameInput?.value.trim();
     
-    if (!updateBtn || !nameInput) {
-        console.error('Update button or name input not found');
+    if (!updateBtn || !usernameInput) {
+        console.error('Update button or username input not found');
         return;
     }
     
@@ -357,25 +358,31 @@ async function handleNameUpdate(e) {
         updateBtn.disabled = true;
         updateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
         
-        if (!newName) {
-            throw new Error('Please enter a display name');
+        if (!newUsername) {
+            throw new Error('Please enter a username');
         }
         
-        console.log('Sending request to update name...');
+        // Username validation (alphanumeric with underscores, 3-20 chars)
+        const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+        if (!usernameRegex.test(newUsername)) {
+            throw new Error('Username must be 3-20 characters long and can only contain letters, numbers, and underscores');
+        }
+        
+        console.log('Sending request to update username...');
         const response = await fetch('/api/auth/update-profile', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 ...getAuthHeaders()
             },
-            body: JSON.stringify({ name: newName })
+            body: JSON.stringify({ username: newUsername })
         });
 
         const data = await response.json();
         console.log('Server response:', data);
         
         if (!response.ok) {
-            throw new Error(data.message || 'Failed to update name');
+            throw new Error(data.message || 'Failed to update username');
         }
 
         // Update auth state with new token if provided
@@ -386,19 +393,28 @@ async function handleNameUpdate(e) {
             if (AppState.user) {
                 AppState.user = {
                     ...AppState.user,
-                    name: data.user?.name || newName,
+                    username: data.user?.username || newUsername,
+                    name: data.user?.name || AppState.user.name,
                     email: data.user?.email || AppState.user.email
                 };
+                
+                // Save updated user to localStorage
+                localStorage.setItem('user', JSON.stringify(AppState.user));
                 
                 // Update all name elements in the UI
                 const nameElements = document.querySelectorAll('.user-name, .name-display, #userName');
                 nameElements.forEach(el => {
-                    el.textContent = data.user?.name || newName;
+                    el.textContent = data.user?.username || newUsername;
                 });
+                
+                // Trigger user update event
+                window.dispatchEvent(new CustomEvent('user-updated', {
+                    detail: { user: AppState.user }
+                }));
             }
         }
         
-        showSuccess('Display name updated successfully');
+        showSuccess('Username updated successfully');
     } catch (error) {
         console.error('Error updating display name:', error);
         showError(error.message || 'Failed to update display name');
