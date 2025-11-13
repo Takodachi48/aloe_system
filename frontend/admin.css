@@ -2703,6 +2703,63 @@ input[type="time"]:focus::-webkit-calendar-picker-indicator {
     gap: 12px;
 }
 
+/* Dataset Statistics Section */
+.dataset-stats {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.stats-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-label {
+    color: #B0B0B0;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: #E0E0E0;
+    font-size: 1.1rem;
+}
+
+.error-message {
+    display: flex;
+    align-items: center;
+    color: #FF6B6B;
+    font-size: 0.9rem;
+    padding: 0.5rem 0;
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #33BB86;
+    animation: spin 1s ease-in-out infinite;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .section-title::before {
     content: '';
     width: 4px;
