@@ -2,7 +2,78 @@ import { AppState } from '../../core/state.js';
 import { Elements } from '../../core/elements.js';
 import ApiService from '../../services/api.js';
 import { showSuccess, showError } from '../../utils/ui.js';
-import { getAuthHeaders } from '../../services/auth.js';
+import { getAuthHeaders, getAuthToken } from '../../services/auth.js';
+
+/**
+ * Extracts the public ID from a Cloudinary URL
+ * @param {string} url - The Cloudinary URL
+ * @returns {string|null} The public ID or null if not found
+ */
+function extractPublicIdFromUrl(url) {
+    if (!url) return null;
+    
+    try {
+        // Extract the path after 'upload/' and before the file extension
+        const uploadIndex = url.indexOf('/upload/') + 8; // +8 for '/upload/'.length
+        if (uploadIndex === -1) return null;
+        
+        // Get the part after upload/ and before any transformations or version
+        let path = url.substring(uploadIndex);
+        
+        // Remove any version info (e.g., /v1234567890/)
+        path = path.replace(/^v\d+\//, '');
+        
+        // Remove any transformation parameters
+        const questionMarkIndex = path.indexOf('?');
+        if (questionMarkIndex !== -1) {
+            path = path.substring(0, questionMarkIndex);
+        }
+        
+        // Remove file extension
+        const lastDotIndex = path.lastIndexOf('.');
+        if (lastDotIndex !== -1) {
+            path = path.substring(0, lastDotIndex);
+        }
+        
+        return path || null;
+    } catch (error) {
+        console.error('Error extracting public ID from URL:', error);
+        return null;
+    }
+}
+
+/**
+ * Deletes an image from Cloudinary
+ * @param {string} publicId - The public ID of the image to delete
+ * @returns {Promise<boolean>} True if successful, false otherwise
+ */
+async function deleteImageFromCloudinary(publicId) {
+    if (!publicId) return false;
+    
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            throw new Error('No authentication token available');
+        }
+        
+        // Use DELETE method with publicId in the URL
+        const response = await fetch(`/api/upload/${encodeURIComponent(publicId)}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Failed to delete image');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error deleting image from Cloudinary:', error);
+        // Don't fail the upload if deletion fails
+        return false;
+    }
+}
 
 // Function to update profile picture in the UI
 const setProfilePicture = (url) => {
@@ -217,10 +288,18 @@ window.addEventListener('page-changed', (event) => {
 // This function is no longer needed as we're not using settings checkboxes anymore
 
 async function handleProfilePictureUpload(e) {
-    console.log('handleProfilePictureUpload called');
+    const requestId = Math.random().toString(36).substr(2, 9);
+    const log = (...args) => console.log(`[ProfilePic][${requestId}]`, ...args);
+    
+    log('handleProfilePictureUpload called');
+    log('Current AppState user:', AppState.user ? {
+        id: AppState.user._id || AppState.user.id,
+        email: AppState.user.email,
+        hasProfilePic: !!AppState.user.profilePicture
+    } : 'No user in AppState');
     
     if (!e || !e.target) {
-        console.error('Invalid event object:', e);
+        log('Invalid event object:', e);
         return;
     }
     
@@ -246,22 +325,93 @@ async function handleProfilePictureUpload(e) {
         const formData = new FormData();
         formData.append('image', file);
         
-        // Get the auth token
-        const token = localStorage.getItem('token');
+        // Get the current user and old profile picture URL
+        const currentUser = AppState.user || JSON.parse(localStorage.getItem('user') || '{}');
+        const oldProfilePicUrl = currentUser?.profilePicture;
+        
+        // Get the auth token using the auth service
+        let token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
         if (!token) {
-            throw new Error('Not authenticated - please log in again');
+            console.error('No authentication token found in storage');
+            // Try to get the token from AppState if available
+            if (AppState.authToken) {
+                console.log('Using token from AppState');
+                token = AppState.authToken;
+            } else {
+                // If still no token, force a logout
+                console.error('No authentication token available, forcing logout');
+                window.dispatchEvent(new CustomEvent('logout'));
+                throw new Error('Session expired. Please log in again.');
+            }
         }
         
-        console.log('Sending upload request to /api/upload/profile');
+        // If there's an existing profile picture, delete it first
+        if (oldProfilePicUrl && oldProfilePicUrl.includes('cloudinary')) {
+            try {
+                log('Deleting old profile picture...');
+                const publicId = extractPublicIdFromUrl(oldProfilePicUrl);
+                if (publicId) {
+                    await deleteImageFromCloudinary(publicId);
+                    log('Old profile picture deleted successfully');
+                }
+            } catch (deleteError) {
+                // Don't fail the upload if deletion fails, just log it
+                console.warn('Failed to delete old profile picture:', deleteError);
+            }
+        }
+        
+        // Log token details (without exposing the actual token)
+        try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+                const payload = JSON.parse(atob(tokenParts[1]));
+                log('JWT Token payload:', {
+                    userId: payload.userId || payload.sub,
+                    email: payload.email,
+                    exp: payload.exp ? new Date(payload.exp * 1000).toISOString() : 'No expiration',
+                    iat: payload.iat ? new Date(payload.iat * 1000).toISOString() : 'No issued at'
+                });
+            }
+        } catch (tokenError) {
+            log('Error parsing JWT token:', tokenError);
+        }
+        
+        log('Sending upload request to /api/upload/profile');
+        log('Request headers:', {
+            'Authorization': `Bearer ${token.substring(0, 10)}...`,
+            'Content-Type': 'multipart/form-data'
+        });
+        
+        // Add request ID to track this request
+        formData.append('requestId', requestId);
         
         // Upload the image
+        log('Initiating file upload...', {
+            file: {
+                name: file.name,
+                type: file.type,
+                size: file.size
+            }
+        });
+        
+        // Get auth headers which will include the token if available
+        const headers = {
+            ...getAuthHeaders(),
+            'X-Request-ID': requestId
+        };
+        
+        log('Sending request with headers:', {
+            ...headers,
+            'Authorization': headers.Authorization ? 'Bearer [TOKEN]' : 'No token'
+        });
+        
         const response = await fetch('/api/upload/profile', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
+            headers: headers,
             body: formData
         });
+        
+        log('Received response status:', response.status, response.statusText);
         
         console.log('Upload response status:', response.status);
         
@@ -298,11 +448,35 @@ async function handleProfilePictureUpload(e) {
         
         // Update the user's profile picture in AppState
         if (AppState.user) {
+            log('Updating AppState with new profile picture URL:', profilePictureUrl);
+            const oldProfilePic = AppState.user.profilePicture;
             AppState.user.profilePicture = profilePictureUrl;
             
             // Save to localStorage
-            localStorage.setItem('user', JSON.stringify(AppState.user));
-            console.log('Saved updated user data to localStorage');
+            try {
+                localStorage.setItem('user', JSON.stringify(AppState.user));
+                log('Successfully updated user data in localStorage');
+                
+                // Verify the value was saved correctly
+                const savedUser = JSON.parse(localStorage.getItem('user'));
+                log('Verified localStorage user data:', {
+                    id: savedUser?._id || savedUser?.id,
+                    profilePicture: savedUser?.profilePicture,
+                    matchesExpected: savedUser?.profilePicture === profilePictureUrl
+                });
+                
+                if (savedUser?.profilePicture !== profilePictureUrl) {
+                    console.error('LocalStorage verification failed: Profile picture URL does not match');
+                }
+            } catch (storageError) {
+                console.error('Error saving to localStorage:', storageError);
+            }
+            
+            // Log the change
+            log('Profile picture URL updated:', {
+                from: oldProfilePic,
+                to: profilePictureUrl
+            });
         }
         
         // Update the UI with the new profile picture
@@ -325,7 +499,27 @@ async function handleProfilePictureUpload(e) {
         console.log('Profile picture update completed successfully');
         
     } catch (error) {
-        console.error('Error uploading profile picture:', error);
+        const errorDetails = {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            code: error.code
+        };
+        
+        log('Error uploading profile picture:', errorDetails);
+        
+        // Check localStorage state
+        try {
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            log('Current user in localStorage at error time:', currentUser ? {
+                id: currentUser._id || currentUser.id,
+                email: currentUser.email,
+                profilePicture: currentUser.profilePicture
+            } : 'No user in localStorage');
+        } catch (e) {
+            log('Error reading localStorage:', e);
+        }
+        
         showError(error.message || 'Failed to upload profile picture. Please try again.');
     } finally {
         if (uploadBtn) {

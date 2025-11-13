@@ -1,3 +1,5 @@
+import { setUser } from './js/core/state.js';
+
 // DOM Elements
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
@@ -96,16 +98,27 @@ loginForm.addEventListener('submit', async (e) => {
             throw new Error(data.message || 'Login failed');
         }
         
-        // Store token
-        console.log('Storing token...', { rememberMe, hasToken: !!data.token });
-        localStorage.setItem('authToken', data.token);
+        // Import the setUser function if not already imported
+        if (typeof setUser !== 'function') {
+            console.error('setUser function not found. Make sure it\'s imported.');
+            throw new Error('Internal error: User management not available');
+        }
         
-        // Store user info
-        localStorage.setItem('user', JSON.stringify(data.user));
+        // Store user and token using the enhanced setUser function
+        console.log('Storing user session...', { 
+            userId: data.user?.id || data.user?._id, 
+            rememberMe,
+            hasToken: !!data.token 
+        });
         
-        // Verify it was stored
-        const storedToken = localStorage.getItem('authToken');
-        console.log('Token stored successfully. Verification:', storedToken ? 'FOUND' : 'NOT FOUND');
+        try {
+            // This will validate the token and store it in the appropriate storage
+            setUser(data.user, data.token, rememberMe);
+            console.log('User session stored successfully');
+        } catch (error) {
+            console.error('Failed to store user session:', error);
+            throw new Error('Failed to initialize user session');
+        }
         
         showMessage('Login successful! Redirecting...', 'success');
         
