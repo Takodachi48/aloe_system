@@ -2,7 +2,7 @@ const { MongoClient } = require('mongodb');
 require('dotenv').config();
 
 const uri = process.env.MONGODB_URI;
-const dbName = process.env.MONGODB_DB_NAME || 'aloeshield';
+const dbName = process.env.MONGODB_DB_NAME || 'aloe-sys-db';
 
 // Debug logging
 console.log('MongoDB URI exists:', !!uri);
@@ -133,6 +133,7 @@ class Database {
                 prevention: analysisData.prevention || [],
                 image_path: analysisData.imagePath,
                 thumbnail_path: analysisData.thumbnailPath,
+                pot_name: analysisData.potName || 'Unnamed Pot',
                 created_at: new Date(),
                 updated_at: new Date()
             };
@@ -223,6 +224,7 @@ class Database {
             analysis_id: plan.analysisId,
             disease_key: plan.diseaseKey,
             disease_name: plan.diseaseName,
+            pot_name: plan.potName || 'Unnamed Pot',
             cycle: plan.cycle,
             status: plan.status, // active | completed_success | leaf_removal_recommended
             before_photo_url: plan.beforePhotoUrl,

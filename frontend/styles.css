@@ -868,6 +868,12 @@ h1 {
     border: 1px solid #eee;
 }
 
+.history-pot-name {
+    font-weight: 600;
+    color: #2E7D32;
+    white-space: nowrap;
+}
+
 .history-disease {
     font-weight: 500;
     color: #333;

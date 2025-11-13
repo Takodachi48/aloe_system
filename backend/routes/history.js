@@ -32,7 +32,8 @@ router.get('/', authMiddleware, async (req, res) => {
                 status: 1,
                 severity: 1,
                 created_at: 1,
-                thumbnail_path: 1
+                thumbnail_path: 1,
+                pot_name: 1
             })
             .sort({ created_at: -1 })
             .skip(offset)
@@ -96,7 +97,8 @@ router.get('/disease/:diseaseKey', async (req, res) => {
                 status: 1,
                 severity: 1,
                 created_at: 1,
-                thumbnail_path: 1
+                thumbnail_path: 1,
+                pot_name: 1
             })
             .sort({ created_at: -1 })
             .skip(offset)
@@ -170,7 +172,8 @@ router.get('/status/:status', async (req, res) => {
                 status: 1,
                 severity: 1,
                 created_at: 1,
-                thumbnail_path: 1
+                thumbnail_path: 1,
+                pot_name: 1
             })
             .sort({ created_at: -1 })
             .skip(offset)
@@ -261,7 +264,8 @@ router.get('/date-range', async (req, res) => {
                 status: 1,
                 severity: 1,
                 created_at: 1,
-                thumbnail_path: 1
+                thumbnail_path: 1,
+                pot_name: 1
             })
             .sort({ created_at: -1 })
             .skip(offset)
@@ -346,7 +350,8 @@ router.get('/search/:query', async (req, res) => {
                 status: 1,
                 severity: 1,
                 created_at: 1,
-                thumbnail_path: 1
+                thumbnail_path: 1,
+                pot_name: 1
             })
             .sort({ created_at: -1 })
             .skip(offset)
