@@ -117,36 +117,7 @@ const renderLatestEvaluation = (evaluation) => {
 
 function renderPlan(plan) {
     if (!Elements.treatmentPlanContent) return;
-    const daysHtml = plan.days.map(d => {
-        const tasks = d.tasks.map(t => `
-            <label style="display:flex; gap:8px; align-items:center; margin:6px 0;">
-                <input type="checkbox" data-task-id="${t.id}" data-day="${d.day}" ${t.completed ? 'checked' : ''}>
-                <span>${t.text}${t.timing ? ` <span style=\"color:var(--muted); font-size:12px;\">(${t.timing})</span>` : ''}</span>
-            </label>
-        `).join('');
-
-        const collapsed = d.collapsed && d.completed;
-        return `
-            <div class="card" style="padding:12px; ${d.completed ? 'opacity:0.95' : ''}">
-                <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer;" class="day-header" data-day="${d.day}">
-                    <h3 style="margin:0;">Day ${d.day}</h3>
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        ${d.completed ? '<span class="status-badge status-healthy">Done</span>' : ''}
-                        <span class="toggle-icon">${collapsed ? '▸' : '▾'}</span>
-                    </div>
-                </div>
-                <div class="day-body" style="margin-top:8px; ${collapsed ? 'display:none;' : ''}">
-                    <div>${tasks}</div>
-                    <div style="margin-top:10px;">
-                        <label class="result-label" style="display:block; margin-bottom:6px;">Notes</label>
-                        <textarea data-notes-day="${d.day}" placeholder="Add observations (optional)" style="width:100%; min-height:72px; resize:vertical; padding:8px;"></textarea>
-                        <div style="margin-top:8px;"><button class="btn btn-secondary" data-save-notes-day="${d.day}">Save Notes</button></div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
+    
     const statusMap = {
         active: 'Active',
         completed_success: 'Completed',
@@ -158,44 +129,174 @@ function renderPlan(plan) {
     const completedDays = Array.isArray(plan.days) ? plan.days.filter(d => d.completed).length : 0;
     const progressPct = totalDays === 0 ? 0 : Math.round((completedDays / totalDays) * 100);
 
-    const lastEval = Array.isArray(plan.evaluations) && plan.evaluations.length > 0 ? plan.evaluations[plan.evaluations.length - 1] : null;
-    const evaluationSection = renderLatestEvaluation(lastEval);
+    // Remove the modal-analysis-grid and create a simple info section above the day cards
+    const infoSection = `
+        <div style="margin-bottom:32px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:16px;">
+                <div>
+                </div>
+                <div>
+                    <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">STATUS</div>
+                    <div style="font-size:16px; font-weight:600; color:var(--text);">${statusMap[plan.status] || plan.status}</div>
+                </div>
+                <div>
+                    <div style="font-size:12px; color:var(--muted); margin-bottom:4px;">PROGRESS</div>
+                    <div style="font-size:16px; font-weight:600; color:var(--text);">Day ${currentDay} of ${totalDays}</div>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="confidence-bar" style="flex:1; height:12px; background:var(--border); border-radius:6px; margin-right:16px;">
+                    <div class="confidence-fill" style="width:${progressPct}%; height:100%; background:var(--primary); border-radius:6px;"></div>
+                </div>
+                <button id="reminderToggleBtn" class="btn ${plan.reminders_enabled ? 'btn-primary' : ''}" style="padding:8px 16px; font-size:14px;">
+                    ${plan.reminders_enabled ? 'Reminders On  🔔' : 'Reminders Off  🔕'}
+                </button>
+            </div>
+        </div>
+    `;
+
+    const daysHtml = plan.days.map((d, index) => {
+        const tasks = d.tasks.map(t => `
+            <label style="display:flex; gap:8px; align-items:center; margin:8px 0; padding:8px; border-radius:6px; background:var(--surface);">
+                <input type="checkbox" data-task-id="${t.id}" data-day="${d.day}" ${t.completed ? 'checked disabled' : ''}>
+                <span style="font-size:16px; font-weight:500;">${t.text}${t.timing ? ` <span style=\"color:var(--muted); font-size:14px;\">(${t.timing})</span>` : ''}</span>
+                ${t.completed ? '<span style="color:var(--success); font-size:14px; font-weight:600; margin-left:auto;">✓ Completed</span>' : ''}
+            </label>
+        `).join('');
+
+        const completedTasks = d.tasks.filter(t => t.completed).length;
+        const totalTasks = d.tasks.length;
+        const dayProgressPct = totalTasks === 0 ? 0 : Math.round((completedTasks / totalTasks) * 100);
+        
+        const showRescan = d.day >= 2 || (d.day === 1 && d.completed);
+        
+        // Get evaluation for this day if available
+        const dayEvaluation = plan.evaluations && plan.evaluations[index];
+        
+        // Determine before photo - for day 1 use plan.before_photo_url, for day 2+ use previous day's after photo
+        let beforePhotoUrl;
+        if (d.day === 1) {
+            beforePhotoUrl = plan.before_photo_url;
+        } else if (index > 0 && plan.days[index - 1]?.completed) {
+            // Look for previous day's after photo in evaluations
+            const prevEvaluation = plan.evaluations && plan.evaluations[index - 1];
+            beforePhotoUrl = prevEvaluation?.after?.imageUrl || plan.after_photo_url;
+        }
+        
+        const afterPhotoUrl = dayEvaluation?.after?.imageUrl || (d.completed ? plan.after_photo_url : null);
+
+        // Get probabilities from evaluation if available
+        const probabilities = dayEvaluation?.before?.allPredictions || {};
+
+        return `
+            <div class="card" style="padding:32px; margin-bottom:32px; ${d.completed ? 'border-left:6px solid var(--success)' : 'border-left:6px solid var(--primary)'}">
+                <!-- Day Header Only -->
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+                    <div>
+                        <h2 style="margin:0; color:var(--text); font-size:28px; font-weight:700;">Day ${d.day}</h2>
+                        <div style="color:var(--muted); font-size:16px; margin-top:4px;">${plan.disease_name}</div>
+                        <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
+                            ${d.completed ?
+                                '<span class="status-badge status-healthy" style="font-size:14px; padding:6px 16px;">Completed</span>' :
+                                '<span class="status-badge" style="background:var(--primary-light); color:var(--primary); font-size:14px; padding:6px 16px;">In Progress</span>'
+                            }
+                            <span style="font-size:14px; color:var(--muted);">Progress: ${completedTasks}/${totalTasks} tasks</span>
+                        </div>
+                    </div>
+                    <div class="confidence-bar" style="width:200px; height:12px; background:var(--border); border-radius:6px;">
+                        <div class="confidence-fill" style="width:${dayProgressPct}%; height:100%; background:var(--success); border-radius:6px;"></div>
+                    </div>
+                </div>
+
+                <!-- Tasks Section -->
+                <div style="margin-bottom:32px;">
+                    <h3 style="margin:0 0 20px 0; color:var(--text); font-size:20px;">Daily Tasks</h3>
+                    <div style="display:grid; gap:4px;">${tasks}</div>
+                </div>
+
+                <!-- Photos Section -->
+                <div style="margin-bottom:32px;">
+                    <h3 style="margin:0 0 20px 0; color:var(--text); font-size:20px;">Visual Progress</h3>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+                        <div>
+                            <div style="font-size:16px; color:var(--muted); margin-bottom:12px; font-weight:600;">Before</div>
+                            ${beforePhotoUrl ?
+                                `<img src="${beforePhotoUrl}" style="width:100%; height:200px; object-fit:cover; border-radius:12px; border:2px solid var(--border);"/>` :
+                                `<div style="width:100%; height:200px; background:var(--border-light); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:16px;">No photo available</div>`
+                            }
+                        </div>
+                        <div>
+                            <div style="font-size:16px; color:var(--muted); margin-bottom:12px; font-weight:600;">After</div>
+                            ${afterPhotoUrl ?
+                                `<img src="${afterPhotoUrl}" style="width:100%; height:200px; object-fit:cover; border-radius:12px; border:2px solid var(--border);"/>` :
+                                `<div style="width:100%; height:200px; background:var(--border-light); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:16px;">No photo available</div>`
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Evaluation Results with Probabilities -->
+                ${dayEvaluation ? `
+                <div style="margin-bottom:32px; padding:20px; background:var(--border-light); border-radius:12px;">
+                    <h3 style="margin:0 0 16px 0; color:var(--text); font-size:20px;">Evaluation Results</h3>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                        <div>
+                            <span style="color:var(--muted); font-size:16px;">Outcome:</span>
+                            <strong style="color:${dayEvaluation.outcome === 'improved' ? 'var(--success)' : dayEvaluation.outcome === 'worsened' ? 'var(--error)' : 'var(--warning)'}; font-size:18px; margin-left:8px;">
+                                ${toTitleCase(dayEvaluation.outcome)}
+                            </strong>
+                        </div>
+                        <div>
+                            <span style="color:var(--muted); font-size:16px;">Score:</span>
+                            <strong style="font-size:18px; margin-left:8px;">${dayEvaluation.scores?.before || 'N/A'} → ${dayEvaluation.scores?.after || 'N/A'}</strong>
+                        </div>
+                    </div>
+                    ${Object.keys(probabilities).length > 0 ? `
+                    <div>
+                        <h4 style="margin:0 0 12px 0; color:var(--text); font-size:18px;">Disease Probabilities</h4>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                            ${Object.entries(probabilities)
+                                .sort((a, b) => b[1] - a[1])
+                                .slice(0, 5)
+                                .map(([disease, prob]) =>
+                                    `<span style="background:rgba(56,142,60,0.1); color:#2e7d32; border-radius:999px; padding:6px 16px; font-size:14px; font-weight:600;">
+                                        ${toTitleCase(disease)} ${typeof prob === 'number' ? prob.toFixed(1) + '%' : prob}
+                                    </span>`
+                                ).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+                ` : ''}
+
+                <!-- Notes and Rescan -->
+                <div style="border-top:3px solid var(--border); padding-top:24px;">
+                    <div style="margin-bottom:20px;">
+                        <h3 style="margin:0 0 16px 0; color:var(--text); font-size:20px;">Daily Notes</h3>
+                        <textarea data-notes-day="${d.day}" placeholder="Add detailed observations about today's progress, symptoms, and any changes you notice..." style="width:100%; min-height:120px; resize:vertical; padding:16px; border:1px solid var(--border); border-radius:8px; font-size:16px;"></textarea>
+                        <div style="margin-top:16px;">
+                            <button class="btn btn-secondary" data-save-notes-day="${d.day}" style="padding:12px 24px; font-size:16px;">Save Notes</button>
+                        </div>
+                    </div>
+                    
+                    ${showRescan && plan.status === 'active' ? `
+                    <div>
+                        <label class="btn btn-primary" style="cursor:pointer; width:100%; text-align:center; padding:16px; font-size:18px; font-weight:600;">
+                            <input type="file" accept="image/*" style="display:none;" data-rescan-day="${d.day}">
+                              📸 Upload Rescan for Day ${d.day}
+                        </label>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+
     Elements.treatmentPlanContent.innerHTML = `
         <div class="modal-layout">
-            <div class="modal-analysis-grid">
-                <div class="result-item"><div class="result-label">Disease</div><div class="result-value">${plan.disease_name}</div></div>
-                <div class="result-item"><div class="result-label">Cycle</div><div class="result-value">${plan.cycle}</div></div>
-                <div class="result-item"><div class="result-label">Status</div><div class="result-value">${statusMap[plan.status] || plan.status}</div></div>
-                <div class="result-item">
-                    <div class="result-label">Progress</div>
-                    <div class="confidence-bar"><div class="confidence-fill" style="width:${progressPct}%;"></div></div>
-                    <div class="confidence-text">Day ${currentDay} of ${totalDays}</div>
-                </div>
-                <div class="result-item">
-                    <div class="result-label">Reminders</div>
-                    <button id="reminderToggleBtn" class="btn ${plan.reminders_enabled ? 'btn-primary' : ''}">${plan.reminders_enabled ? 'Reminders On 🔔' : 'Reminders Off 🔕'}</button>
-                </div>
-                ${evaluationSection}
-                <div class="result-item"><div class="result-label">Before Photo</div><img src="${plan.before_photo_url}" style="max-width:100%; border-radius:8px;"/></div>
-                ${plan.after_photo_url ? `<div class="result-item"><div class="result-label">After Photo</div><img src="${plan.after_photo_url}" style="max-width:100%; border-radius:8px;"/></div>` : `<div class="result-item"><div class="result-label">After Photo</div><div style="border:2px dashed var(--border); border-radius:8px; padding:16px; color:var(--muted);">Upload your Day 7 rescan to compare</div></div>`}
-            </div>
-            <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">${daysHtml}</div>
-            <div style="display:flex; gap:12px; margin-top:16px;">
-                ${plan.status === 'active' && plan.cycle === 1 ? `
-                    ${currentDay >= totalDays ? `
-                        <label class="btn btn-secondary" style="cursor:pointer;">
-                            <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
-                            Upload Day ${totalDays} Rescan & Evaluate
-                        </label>
-                    ` : `
-                        <button class="btn btn-secondary" disabled title="Available after completing Day ${totalDays}">Upload Day ${totalDays} Rescan & Evaluate</button>
-                    `}
-                ` : plan.status === 'active' && plan.cycle === 2 ? `
-                    <label class="btn btn-secondary" style="cursor:pointer;">
-                        <input id="rescanFileInput" type="file" accept="image/*" style="display:none;">
-                        Upload Day ${totalDays} Rescan & Evaluate
-                    </label>
-                ` : ''}
+            ${infoSection}
+            <div style="display:flex; flex-direction:column; gap:36px;">
+                ${daysHtml}
             </div>
         </div>
     `;
@@ -277,9 +378,8 @@ function renderPlan(plan) {
         });
     });
 
-    // Upload rescan
-    const fileInput = document.getElementById('rescanFileInput');
-    if (fileInput) {
+    // Upload rescan for each day
+    Elements.treatmentPlanContent.querySelectorAll('input[type="file"][data-rescan-day]').forEach(fileInput => {
         fileInput.addEventListener('change', async () => {
             const file = fileInput.files[0];
             if (!file) return;
@@ -315,7 +415,7 @@ function renderPlan(plan) {
                 showError(err.message);
             }
         });
-    }
+    });
 
 
     const reminderBtn = document.getElementById('reminderToggleBtn');
