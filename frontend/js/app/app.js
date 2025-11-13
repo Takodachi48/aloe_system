@@ -3,7 +3,7 @@ import { Elements } from '../core/elements.js';
 import { checkAuthentication } from '../services/auth.js';
 import { initHeader, updateUserDisplay } from './components/header.js';
 import { initSidebar } from './components/sidebar.js';
-import { analyzeImage } from './pages/analyze.js';
+import { analyzeImage, initCamera } from './pages/analyze.js';
 import { loadHistoryPage, viewAnalysis, deleteAnalysis } from './pages/history.js';
 import { generateDiseaseGuide } from './pages/diseases.js';
 import { initSettingsPage } from './pages/settings.js';
@@ -54,13 +54,17 @@ class AloeShieldApp {
             Elements.uploadArea.addEventListener('dragover', handleDragOver);
             Elements.uploadArea.addEventListener('dragleave', handleDragLeave);
             Elements.uploadArea.addEventListener('drop', handleDrop);
-            Elements.uploadArea.addEventListener('click', () => {
-                if (Elements.fileInput) Elements.fileInput.click();
-            });
+            // Upload area click functionality removed - only Select Image button triggers file input now
         }
 
         if (Elements.fileInput) {
             Elements.fileInput.addEventListener('change', handleFileSelect);
+        }
+
+        if (Elements.selectImageBtn) {
+            Elements.selectImageBtn.addEventListener('click', () => {
+                if (Elements.fileInput) Elements.fileInput.click();
+            });
         }
 
         if (Elements.analyzeBtn) {
@@ -89,6 +93,7 @@ class AloeShieldApp {
         initSettingsPage();
         initWeatherPage();
         initTreatmentPlansUI();
+        initCamera();
         updateHeaderForPage('analyze');
     }
 
