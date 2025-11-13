@@ -1,7 +1,43 @@
 import { AppState, setUser, clearUser } from '../core/state.js';
 
 export function getAuthToken() {
-    return localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    // Get the token from storage
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+    
+    // If no token, return null
+    if (!token) return null;
+    
+    try {
+        // Decode the token to get user info
+        const tokenParts = token.split('.');
+        if (tokenParts.length === 3) {
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const tokenUserId = payload.userId || payload.sub;
+            
+            // Get current user from AppState or localStorage
+            const currentUser = AppState.user || JSON.parse(localStorage.getItem('user') || 'null');
+            const currentUserId = currentUser?._id || currentUser?.id;
+            
+            // If the token doesn't belong to the current user, clear it
+            if (currentUserId && tokenUserId !== currentUserId) {
+                console.warn('Token user ID does not match current user ID. Clearing token.', {
+                    tokenUserId,
+                    currentUserId
+                });
+                localStorage.removeItem('authToken');
+                sessionStorage.removeItem('authToken');
+                return null;
+            }
+        }
+    } catch (error) {
+        console.error('Error validating auth token:', error);
+        // If there's an error parsing the token, clear it
+        localStorage.removeItem('authToken');
+        sessionStorage.removeItem('authToken');
+        return null;
+    }
+    
+    return token;
 }
 
 export function getAuthHeaders() {
@@ -37,24 +73,39 @@ export function logout() {
 import { isMaintenanceMode } from './api.js';
 
 export async function checkAuthentication() {
+    // First, get the token with validation
     const token = getAuthToken();
     
-    // First, try to load user data from localStorage if available
-    const savedUser = JSON.parse(localStorage.getItem('user'));
-    if (savedUser) {
-        console.log('Loading user data from localStorage:', { id: savedUser._id, hasProfilePicture: !!savedUser.profilePicture });
-        setUser(savedUser, token);
-    }
-    
+    // If we don't have a valid token, clear any existing session
     if (!token) {
+        console.log('No valid authentication token found');
+        clearUser();
+        
         // Don't redirect to login if we're in maintenance mode
         if (isMaintenanceMode) {
             return false;
         }
-        // Clear any existing user data if no token is present
-        clearUser();
-        window.location.href = '/login.html';
+        
+        // Only redirect if we're not already on the login page
+        if (!window.location.pathname.endsWith('login.html')) {
+            window.location.href = '/login.html';
+        }
         return false;
+    }
+    
+    // If we have a token, try to load user data from localStorage
+    const savedUser = JSON.parse(localStorage.getItem('user') || 'null');
+    
+    // If we have a saved user, set it in the state (this will validate the token matches)
+    if (savedUser && savedUser._id) {
+        console.log('Loading user data from localStorage:', { 
+            id: savedUser._id, 
+            email: savedUser.email,
+            hasProfilePicture: !!savedUser.profilePicture 
+        });
+        
+        // This will validate that the token matches the user
+        setUser(savedUser, token);
     }
 
     try {

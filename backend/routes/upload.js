@@ -1,4 +1,5 @@
 const express = require('express');
+const { ObjectId } = require('mongodb');
 const { 
     analysisUpload, 
     profileUpload, 
@@ -112,6 +113,22 @@ router.post('/profile', ensureDbConnection, authMiddleware, profileUpload.single
     const requestId = req.requestId || 'no-request-id';
     const log = (...args) => console.log(`[Upload][${requestId}]`, ...args);
     
+    log('=== STARTING PROFILE PICTURE UPLOAD ===');
+    log('Request headers:', {
+        'content-type': req.headers['content-type'],
+        'authorization': req.headers['authorization'] ? 'Bearer [HIDDEN]' : 'Not provided',
+        'x-request-id': req.headers['x-request-id'] || 'Not provided'
+    });
+    
+    log('Authenticated user from JWT:', {
+        userId: req.user?.userId,
+        email: req.user?.email,
+        isAdmin: req.user?.isAdmin || false
+    });
+    
+    // Log request body (excluding file data)
+    log('Request body (non-file fields):', Object.keys(req.body).filter(k => k !== 'file'));
+    
     try {
         log('Starting profile picture upload');
         log('Authenticated user:', {
@@ -216,26 +233,77 @@ router.post('/profile', ensureDbConnection, authMiddleware, profileUpload.single
         // Update user's profile picture in the users collection
         const usersCollection = db.collection('users');
         const { ObjectId } = require('mongodb');
-        const userIdObj = new ObjectId(userId);
         
-        await usersCollection.updateOne(
+        // Log before update
+        log('Attempting to update user profile picture in database', {
+            userId: userId,
+            cloudinaryUrl: cloudinaryUrl ? `${cloudinaryUrl.substring(0, 50)}...` : 'null'
+        });
+        
+        // Verify the user exists before updating
+        const userIdObj = new ObjectId(userId);
+        const userBeforeUpdate = await usersCollection.findOne(
+            { _id: userIdObj },
+            { projection: { _id: 1, email: 1, profilePicture: 1 } }
+        );
+        
+        if (!userBeforeUpdate) {
+            log('ERROR: User not found in database', { userId });
+            throw new Error('User not found');
+        }
+        
+        log('User found in database. Current profile picture:', {
+            currentProfilePic: userBeforeUpdate.profilePicture || 'Not set'
+        });
+        
+        // Perform the update
+        const updateResult = await usersCollection.updateOne(
             { _id: userIdObj },
             { 
                 $set: { 
-                    profilePicture: cloudinaryUrl,  // Use cloudinaryUrl consistently
+                    profilePicture: cloudinaryUrl,
                     updatedAt: new Date() 
                 } 
             }
         );
+        
+        log('Database update result:', {
+            matchedCount: updateResult.matchedCount,
+            modifiedCount: updateResult.modifiedCount,
+            acknowledged: updateResult.acknowledged
+        });
+        
+        if (updateResult.matchedCount === 0) {
+            throw new Error('Failed to update user profile - user not found');
+        }
+        
+        if (updateResult.modifiedCount === 0) {
+            log('WARNING: User found but profile picture was not updated');
+        }
 
         // Get updated user data to return
         const updatedUser = await usersCollection.findOne(
             { _id: userIdObj },
-            { projection: { password: 0 } }
+            { 
+                projection: { 
+                    _id: 1, 
+                    name: 1, 
+                    email: 1, 
+                    profilePicture: 1,
+                    updatedAt: 1
+                } 
+            }
         );
+        
+        log('Updated user data from database:', {
+            userId: updatedUser?._id?.toString(),
+            email: updatedUser?.email,
+            hasNewProfilePic: !!updatedUser?.profilePicture,
+            updatedAt: updatedUser?.updatedAt
+        });
 
-        // Return consistent response structure that frontend expects
-        res.json({
+        // Prepare response data
+        const responseData = {
             success: true,
             message: 'Profile image uploaded successfully to Cloudinary',
             data: {
@@ -244,7 +312,7 @@ router.post('/profile', ensureDbConnection, authMiddleware, profileUpload.single
                 filename: file.filename,
                 publicId: publicId,
                 size: file.size,
-                profilePictureUrl: cloudinaryUrl,  // This is what frontend checks
+                profilePictureUrl: cloudinaryUrl,
                 mimetype: file.mimetype,
                 path: cloudinaryUrl,
                 thumbnailPath: thumbnailUrl,
@@ -257,23 +325,58 @@ router.post('/profile', ensureDbConnection, authMiddleware, profileUpload.single
                 id: updatedUser._id,
                 name: updatedUser.name,
                 email: updatedUser.email,
-                profilePicture: cloudinaryUrl  // Include full user object
+                profilePicture: cloudinaryUrl
             }
-        });
-
-    } catch (error) {
-        log('Profile upload error:', error);
-        const errorMessage = error.message || 'An error occurred while uploading the profile image';
-        log('Error details:', {
-            name: error.name,
-            stack: error.stack,
-            code: error.code
+        };
+        
+        log('Sending success response to client');
+        log('Response data:', {
+            userIdInResponse: responseData.user?.id?.toString(),
+            profilePictureInResponse: responseData.user?.profilePicture ? 'Set' : 'Not set',
+            responseDataKeys: Object.keys(responseData)
         });
         
+        res.json(responseData);
+
+    } catch (error) {
+        const errorId = Math.random().toString(36).substr(2, 8);
+        const errorMessage = error.message || 'An error occurred while uploading the profile image';
+        
+        // Log detailed error information
+        log(`[ERROR ${errorId}] Profile upload failed:`, {
+            name: error.name,
+            message: error.message,
+            code: error.code,
+            stack: error.stack,
+            request: {
+                method: req.method,
+                url: req.originalUrl,
+                headers: {
+                    'content-type': req.headers['content-type'],
+                    'authorization': req.headers['authorization'] ? 'Bearer [HIDDEN]' : 'Not provided',
+                    'x-request-id': req.headers['x-request-id'] || 'Not provided'
+                },
+                body: Object.keys(req.body).filter(k => k !== 'file')
+            },
+            user: req.user || 'No user in request'
+        });
+        
+        // If this is a database error, log additional context
+        if (error.name === 'MongoError' || error.name === 'MongoServerError') {
+            log(`[ERROR ${errorId}] MongoDB Error Details:`, {
+                code: error.code,
+                codeName: error.codeName,
+                keyPattern: error.keyPattern,
+                keyValue: error.keyValue
+            });
+        }
+        
+        // Send error response with error ID for correlation
         res.status(500).json({
             error: 'Upload failed',
-            message: errorMessage,
-            requestId: requestId
+            message: `${errorMessage} (Error ID: ${errorId})`,
+            requestId: requestId,
+            errorId: errorId
         });
     }
 });
@@ -330,12 +433,59 @@ router.get('/context/:context', authMiddleware, async (req, res) => {
 
 // Delete uploaded file endpoint - requires authentication and ownership
 router.delete('/:publicId', authMiddleware, async (req, res) => {
+    const log = (...args) => console.log(`[DeleteFile][${req.id || 'no-request-id'}]`, ...args);
+    
     try {
-        const publicId = req.params.publicId;
+        const publicId = decodeURIComponent(req.params.publicId);
         const userId = req.user.userId;
         
-        // Check if user owns this upload
-        const db = getDb();
+        log(`Processing delete request for publicId: ${publicId}`);
+        
+        // Check if this is a profile picture (starts with 'aloeshield/profiles/')
+        if (publicId.includes('aloeshield/profiles/')) {
+            log('Detected profile picture deletion');
+            const usersCollection = db.collection('users');
+            const user = await usersCollection.findOne(
+                { _id: new ObjectId(userId) },
+                { projection: { profilePicture: 1 } }
+            );
+            
+            if (!user) {
+                log('User not found');
+                return res.status(404).json({
+                    success: false,
+                    message: 'User not found'
+                });
+            }
+            
+            // Verify the publicId matches the user's current profile picture
+            if (user.profilePicture && user.profilePicture.includes(publicId)) {
+                log('Deleting profile picture from Cloudinary');
+                const result = await deleteImage(publicId);
+                
+                // Update user's profile picture to null
+                await usersCollection.updateOne(
+                    { _id: new ObjectId(userId) },
+                    { $set: { profilePicture: null } }
+                );
+                
+                log('Successfully deleted profile picture');
+                return res.json({
+                    success: true,
+                    message: 'Profile picture deleted successfully',
+                    data: result
+                });
+            } else {
+                log('User does not own this profile picture');
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have permission to delete this image'
+                });
+            }
+        }
+        
+        // Handle regular uploads
+        log('Processing regular upload deletion');
         const uploadsCollection = db.collection('uploads');
         const uploadRecord = await uploadsCollection.findOne({ 
             publicId: publicId, 
