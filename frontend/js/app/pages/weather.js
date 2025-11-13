@@ -33,13 +33,39 @@ export async function initWeatherPage() {
 
 async function loadAvailableDiseases() {
     try {
-        const response = await ApiService.getDiseaseInfo();
-        if (response.success && response.data) {
-            availableDiseases = response.data.filter(disease => disease.key !== 'healthy');
+        // Default diseases that should always be shown
+        const defaultDiseases = [
+            { key: 'root_rot', name: 'Root Rot' },
+            { key: 'leaf_spot', name: 'Leaf Spot' },
+            { key: 'sunburn', name: 'Sunburn' }
+        ];
+
+        // Try to get additional disease info from API
+        try {
+            const response = await ApiService.getDiseaseInfo();
+            if (response.success && response.data) {
+                // Merge default diseases with API data, keeping default names but allowing API to override other properties
+                const apiDiseases = response.data.filter(d => d.key !== 'healthy');
+                availableDiseases = defaultDiseases.map(defaultDisease => {
+                    const apiDisease = apiDiseases.find(d => d.key === defaultDisease.key);
+                    return apiDisease || defaultDisease; // Use API data if available, otherwise use default
+                });
+                return;
+            }
+        } catch (error) {
+            console.warn('Using default disease data due to API error:', error);
         }
+        
+        // If we get here, use the default diseases
+        availableDiseases = [...defaultDiseases];
     } catch (error) {
-        console.error('Error loading diseases:', error);
-        availableDiseases = [];
+        console.error('Error in loadAvailableDiseases:', error);
+        // Fallback to default diseases in case of any error
+        availableDiseases = [
+            { key: 'root_rot', name: 'Root Rot' },
+            { key: 'leaf_spot', name: 'Leaf Spot' },
+            { key: 'sunburn', name: 'Sunburn' }
+        ];
     }
 }
 
@@ -488,8 +514,7 @@ function renderDiseaseRisk() {
     const keyMap = {
         'root_rot': 'rootRot',
         'leaf_spot': 'leafSpot',
-        'aloe_rust': 'aloeRust',
-        'bacterial_soft_rot': 'bacterialSoftRot'
+        'sunburn': 'sunburn'
     };
 
     const diseasesWithScores = availableDiseases.map(disease => {
@@ -542,25 +567,27 @@ function renderMoreInfo() {
 
     const diseaseDescriptions = {
         'root_rot': {
-            description: 'Fungal pathogens (Pythium, Phytophthora) thrive in wet, poorly-draining soil combined with high humidity (>70%). Overwatering is the primary trigger, as it creates an environment where roots cannot access oxygen.'
+            description: 'Fungal pathogens (Pythium, Phytophthora, Fusarium) thrive in wet, poorly-draining soil. Low risk when temperature < 20°C or humidity < 55%. Medium risk at 20–28°C and 55–75% humidity. High risk at 25–35°C and humidity > 75%, especially with wet soil.'
         },
         'leaf_spot': {
-            description: 'This fungal disease (Colletotrichum species) spreads through water splash on foliage in warm (75-85°F), humid conditions. Direct watering on leaves significantly increases infection risk and provides pathways for fungal entry.'
+            description: 'Fungal disease (Alternaria/Anthracnose) that develops when leaves remain wet. Low risk when temperature < 18°C or humidity < 50%. Medium risk at 18–28°C and 50–70% humidity. High risk at 25–32°C and humidity > 70%.'
         },
-        'aloe_rust': {
-            description: 'This fungal disease produces rust-colored pustules on plant tissue and thrives in high humidity (>70%) with poor air circulation. Close plant spacing and inadequate ventilation accelerate spore dispersal.'
-        },
-        'bacterial_soft_rot': {
-            description: 'Bacterial infections cause rapid tissue breakdown and thrive in high moisture environments combined with poor sanitation. Plant wounds or physical damage provide entry points for bacteria to establish infection.'
+        'sunburn': {
+            description: 'Caused by intense UV exposure and heat stress. Low risk when temperature < 28°C or humidity > 60%. Medium risk at 28–35°C and 40–60% humidity. High risk when temperature > 35°C and humidity < 40% with direct harsh sunlight.'
         }
     };
 
     const keyMap = {
         'root_rot': 'rootRot',
         'leaf_spot': 'leafSpot',
-        'aloe_rust': 'aloeRust',
-        'bacterial_soft_rot': 'bacterialSoftRot'
+        'sunburn': 'sunburn'
     };
+
+    const availableDiseases = [
+        { key: 'root_rot', name: 'Root Rot' },
+        { key: 'leaf_spot', name: 'Leaf Spot' },
+        { key: 'sunburn', name: 'Sunburn' }
+    ];
 
     const diseasesWithScores = availableDiseases.map(disease => {
         const riskKey = keyMap[disease.key] || disease.key;

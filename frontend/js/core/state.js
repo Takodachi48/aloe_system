@@ -21,8 +21,27 @@ export function resetImageState() {
 }
 
 export function setUser(user, token) {
-    AppState.user = user;
+    // Ensure the user object has all required fields
+    const userData = {
+        _id: user._id || user.id,
+        name: user.name,
+        username: user.username,  // Make sure username is included
+        email: user.email,
+        isAdmin: user.isAdmin || false,
+        profilePicture: user.profilePicture || null
+    };
+    
+    // Update AppState
+    AppState.user = userData;
     AppState.authToken = token;
+    
+    // Save to localStorage
+    localStorage.setItem('user', JSON.stringify(userData));
+    if (token) {
+        localStorage.setItem('authToken', token);
+    }
+    
+    console.log('User data saved to localStorage:', userData);
 }
 
 export function clearUser() {

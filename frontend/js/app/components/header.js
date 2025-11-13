@@ -13,8 +13,22 @@ export function initHeader() {
 }
 
 export function updateUserDisplay() {
+    console.log('updateUserDisplay called');
     if (Elements.userName && AppState.user) {
-        Elements.userName.textContent = AppState.user.name || 'User';
+        console.log('Current user object:', JSON.parse(JSON.stringify(AppState.user)));
+        console.log('Available properties:', Object.keys(AppState.user));
+        
+        // Debug: Check if username exists and its value
+        const hasUsername = 'username' in AppState.user;
+        console.log('Has username property:', hasUsername);
+        if (hasUsername) {
+            console.log('Username value:', AppState.user.username);
+        }
+        
+        // Use username if available, otherwise fall back to name
+        const displayName = AppState.user.username || AppState.user.name || 'User';
+        console.log('Setting display name to:', displayName);
+        Elements.userName.textContent = displayName;
     }
     if (Elements.userEmail && AppState.user) {
         Elements.userEmail.textContent = AppState.user.email || '';

@@ -75,6 +75,7 @@ export async function checkAuthentication() {
             const userData = {
                 _id: data.user.id || data.user._id,
                 name: data.user.name || '',
+                username: data.user.username || '',  // Add username field
                 email: data.user.email || '',
                 isAdmin: data.user.isAdmin || false,
                 profilePicture: data.user.profilePicture || null
