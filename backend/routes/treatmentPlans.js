@@ -16,9 +16,13 @@ router.use((req, res, next) => {
 // Map textual severity to numeric score for comparison
 const SEVERITY_SCORE = { healthy: 0, low: 1, medium: 2, high: 3 };
 
-// Basic disease-specific task generator (can be expanded)
-function generateTasksForDisease(diseaseKey) {
+// Adaptive task generator based on disease and previous day's results
+function generateTasksForDisease(diseaseKey, previousOutcome = null, currentDay = 1) {
     const baseTasks = {
+        inspection: [
+            'Inspect plant for changes in disease symptoms',
+            'Document any improvements or worsening'
+        ],
         watering: [
             'Check soil moisture and water if dry',
             'Ensure proper drainage; avoid waterlogging'
@@ -32,19 +36,44 @@ function generateTasksForDisease(diseaseKey) {
         ],
         fungicide: [
             'Apply fungicide as directed (spot treat affected areas)'
+        ],
+        nutrition: [
+            'Apply appropriate plant nutrients if needed',
+            'Check for nutrient deficiencies'
+        ],
+        pruning: [
+            'Remove severely affected leaves if necessary',
+            'Dispose of removed leaves properly'
         ]
     };
 
-    const diseasePresets = {
-        healthy: [
-            ['watering'], ['light'], ['hygiene'], ['watering'], ['light'], ['hygiene'], ['inspection']
-        ],
-        leaf_spot: [
-            ['fungicide', 'hygiene'], ['light'], ['watering'], ['fungicide'], ['hygiene'], ['light'], ['inspection']
-        ],
-        root_rot: [
-            ['watering'], ['hygiene'], ['light'], ['watering'], ['fungicide'], ['light'], ['inspection']
-        ]
+    // Adaptive logic based on previous outcome
+    const getTasksForDay = (day, outcome) => {
+        // Day 1 always starts with basic treatment
+        if (day === 1) {
+            switch(diseaseKey) {
+                case 'leaf_spot':
+                    return ['fungicide', 'hygiene', 'light'];
+                case 'root_rot':
+                    return ['watering', 'hygiene', 'light'];
+                default:
+                    return ['watering', 'light', 'hygiene'];
+            }
+        }
+        
+        // Adaptive tasks based on previous day's outcome
+        switch(outcome) {
+            case 'improved':
+                // Continue with lighter maintenance
+                return ['inspection', 'hygiene', 'light'];
+            case 'worsened':
+                // Intensify treatment
+                return ['inspection', 'fungicide', 'pruning', 'hygiene'];
+            case 'same':
+            default:
+                // Continue current treatment
+                return ['inspection', 'fungicide', 'hygiene', 'light'];
+        }
     };
 
     const timingFor = (text) => {
@@ -52,30 +81,30 @@ function generateTasksForDisease(diseaseKey) {
         if (t.includes('fungicide')) return 'Evening';
         if (t.includes('water')) return 'Morning';
         if (t.includes('sun') || t.includes('light')) return 'Morning';
+        if (t.includes('inspect')) return 'Morning';
         return 'Anytime';
     };
 
-    const plan = (diseasePresets[diseaseKey] || diseasePresets.leaf_spot).map((categories, idx) => {
-        const tasks = [];
-        categories.forEach(cat => {
-            if (cat === 'inspection') {
-                tasks.push('Final inspection and prepare for rescan');
-            } else if (baseTasks[cat]) {
-                tasks.push(...baseTasks[cat]);
-            }
-        });
-        const dayTasks = tasks.map(text => ({ id: uuidv4(), text, timing: timingFor(text), completed: false }));
-        return {
-            day: idx + 1,
-            tasks: dayTasks,
-            notes: '',
-            completed: false,
-            completedAt: null,
-            collapsed: false
-        };
+    // Generate tasks for the current day based on previous outcome
+    const categories = getTasksForDay(currentDay, previousOutcome);
+    const tasks = [];
+    
+    categories.forEach(cat => {
+        if (baseTasks[cat]) {
+            tasks.push(...baseTasks[cat]);
+        }
     });
 
-    return plan;
+    const dayTasks = tasks.map(text => ({ id: uuidv4(), text, timing: timingFor(text), completed: false }));
+    
+    return {
+        day: currentDay,
+        tasks: dayTasks,
+        notes: '',
+        completed: false,
+        completedAt: null,
+        collapsed: false
+    };
 }
 
 function toArray(value) {
@@ -137,16 +166,14 @@ router.post('/', authMiddleware, async (req, res) => {
             analysisId,
             diseaseKey,
             diseaseName,
-            cycle: 1,
             status: 'active', // active | completed_success | leaf_removal_recommended
             createdAt: now,
             updatedAt: now,
-            cycleStartedAt: now,
             beforePhotoUrl: imageUrl,
             afterPhotoUrl: null,
             remindersEnabled: false,
             progression: [], // array of { date, notes, severity }
-            days: generateTasksForDisease(diseaseKey)
+            days: [generateTasksForDisease(diseaseKey, null, 1)]
         };
 
         const saved = await database.createTreatmentPlan(plan);
@@ -258,7 +285,6 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
             return res.status(404).json({ success: false, message: 'Plan not found' });
         }
         const planId = plan.plan_id || plan.planId || req.params.planId;
-        const planCycle = typeof plan.cycle === 'number' ? plan.cycle : parseInt(plan.cycle, 10) || 1;
 
         // Allow passing after photo URL in request body to avoid race conditions right after upload
         const providedAfterUrl = req.body && (req.body.imageUrl || req.body.afterPhotoUrl);
@@ -270,7 +296,7 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
             return res.status(400).json({ success: false, message: 'After photo not set' });
         }
 
-        // Enforce 7-day window per cycle unless all 7 days are completed
+        // Allow daily rescans instead of 7-day window restriction
         const MS_IN_DAY = 24 * 60 * 60 * 1000;
         const totalDays = Array.isArray(plan.days) && plan.days.length > 0 ? plan.days.length : 7;
         const cycleStart = plan.cycle_started_at || plan.created_at || plan.updated_at;
@@ -284,10 +310,8 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
             cycleStart: cycleStart ? new Date(cycleStart).toISOString() : null
         });
 
-        if (!allDaysCompleted && elapsedDays < totalDays) {
-            console.log('Evaluation not allowed yet - timing restriction');
-            return res.status(400).json({ success: false, message: `Evaluation allowed after completing day ${totalDays} or ${totalDays} days elapsed` });
-        }
+        // Allow evaluation at any time for daily rescans
+        // Remove the timing restriction that prevented evaluation before completing all days
 
         console.log('Calling ML service for before photo:', plan.before_photo_url || plan.beforePhotoUrl);
         let before = null;
@@ -395,38 +419,41 @@ router.post('/:planId/evaluate', authMiddleware, async (req, res) => {
 
         const diseaseKeyForCycle = plan.disease_key || plan.diseaseKey || afterDetail.diseaseKey || beforeDetail.diseaseKey || 'leaf_spot';
 
-        console.log('planCycle:', planCycle, 'outcome:', outcome, 'diseaseKeyForCycle:', diseaseKeyForCycle);
+        console.log('outcome:', outcome, 'diseaseKeyForCycle:', diseaseKeyForCycle);
 
         let updatedPlan;
         if (outcome === 'improved' || afterDetail.diseaseKey === 'healthy' || afterDetail.status === 'healthy') {
             console.log('Completing plan as successful');
             updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'completed_success', evaluation);
-            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
-        } else if (planCycle === 1 && (outcome === 'worsened' || outcome === 'same')) {
-            console.log('Starting second cycle');
-            const freshDays = generateTasksForDisease(diseaseKeyForCycle).map(day => ({
-                ...day,
-                completed: false,
-                completedAt: null,
-                notes: '',
-                collapsed: false,
-                tasks: (day.tasks || []).map(task => ({ ...task, completed: false }))
-            }));
-            updatedPlan = await database.startSecondCycle(req.user.userId, planId, freshDays, evaluation);
-            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
+            console.log('Updated plan status:', updatedPlan?.status);
         } else if (outcome === 'worsened') {
-            console.log('Recommending leaf removal');
+            console.log('Recommending leaf removal and continuing treatment');
             updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
-            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
-        } else if (planCycle === 1) {
-            console.log('Appending evaluation for cycle 1');
-            updatedPlan = await database.appendEvaluation(req.user.userId, planId, evaluation);
-            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
+            console.log('Updated plan status:', updatedPlan?.status);
         } else {
-            // Cycle 2 with 'same' outcome - recommend leaf removal
-            console.log('Recommending leaf removal for cycle 2 same outcome');
-            updatedPlan = await database.completeTreatmentPlan(req.user.userId, planId, 'leaf_removal_recommended', evaluation);
-            console.log('Updated plan cycle:', updatedPlan?.cycle, 'status:', updatedPlan?.status);
+            // For 'same' outcome, add next day's tasks and continue treatment
+            console.log('Adding next day tasks for same outcome:', outcome);
+            const currentDay = Array.isArray(plan.days) ? plan.days.length : 1;
+            const nextDayTasks = generateTasksForDisease(diseaseKeyForCycle, outcome, currentDay + 1);
+            
+            const updatedDays = Array.isArray(plan.days) ? [...plan.days, nextDayTasks] : [nextDayTasks];
+            
+            // Update the plan with the new day's tasks
+            const collection = database.db.collection('treatment_plans');
+            updatedPlan = await collection.findOneAndUpdate(
+                { user_id: req.user.userId, plan_id: planId },
+                {
+                    $set: {
+                        days: updatedDays,
+                        updated_at: new Date(),
+                        status: 'active' // Keep plan active for daily continuation
+                    },
+                    $push: { evaluations: evaluation }
+                },
+                { returnDocument: 'after' }
+            );
+            updatedPlan = updatedPlan.value;
+            console.log('Added day', currentDay + 1, 'tasks, total days:', updatedDays.length);
         }
 
         console.log('Evaluation completed successfully');
