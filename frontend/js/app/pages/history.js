@@ -214,35 +214,29 @@ function displayAnalysisModal(analysis) {
         Elements.analysisModal.classList.add('show');
         Elements.analysisModal.style.opacity = '1';
         
-        // Attach event listeners after the modal is fully visible
-        setTimeout(() => {
-            attachModalEventListeners(analysis.analysis_id || analysis.analysisId);
-        }, 100);
+        // Attach event listeners for the modal with the analysis data
+        attachModalEventListeners(analysis);
     }, 10);
 }
 
 // Store handler reference at module level
 let currentOverlayHandler = null;
 
-function attachModalEventListeners(analysisId) {
-    // Clean up any existing event listeners first
-    if (Elements.modalCloseBtn) {
-        // Clone and replace to remove all event listeners
-        const newCloseBtn = Elements.modalCloseBtn.cloneNode(true);
-        Elements.modalCloseBtn.parentNode.replaceChild(newCloseBtn, Elements.modalCloseBtn);
-        Elements.modalCloseBtn = newCloseBtn;
+// Add this to the displayAnalysisModal function after the modal is shown
+function attachModalEventListeners(analysis) {
+    // Get a fresh reference to the close button
+    const closeBtn = document.getElementById('modalCloseBtn');
+    if (closeBtn) {
+        // Remove any existing listeners by cloning and replacing
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
         
         // Add new click handler with a small delay to prevent immediate close
         setTimeout(() => {
-            Elements.modalCloseBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                closeModal();
-                return false;
-            });
+            newCloseBtn.addEventListener('click', handleCloseButtonClick);
         }, 50);
     }
-
+    
     // Remove previous overlay handler if it exists
     if (currentOverlayHandler && Elements.analysisModal) {
         Elements.analysisModal.removeEventListener('click', currentOverlayHandler);
@@ -286,16 +280,42 @@ function attachModalEventListeners(analysisId) {
 
     const viewPlansBtn = document.getElementById('viewPlansBtn');
     if (viewPlansBtn) {
-        viewPlansBtn.addEventListener('click', async () => {
+        // Store the analysis ID in a closure
+        const analysisId = analysis.analysis_id || analysis.analysisId;
+        
+        // Remove any existing listeners
+        const newViewPlansBtn = viewPlansBtn.cloneNode(true);
+        viewPlansBtn.parentNode.replaceChild(newViewPlansBtn, viewPlansBtn);
+        
+        // Add new click handler
+        newViewPlansBtn.addEventListener('click', async () => {
             try {
                 const resp = await ApiService.getTreatmentPlansByAnalysis(analysisId);
                 const first = (resp.data || [])[0];
                 if (!first) return showError('No treatment plans for this analysis yet');
-                window.dispatchEvent(new CustomEvent('openTreatmentPlan', { detail: { planId: first.plan_id } }));
+                window.dispatchEvent(new CustomEvent('openTreatmentPlan', { 
+                    detail: { 
+                        planId: first.plan_id,
+                        analysisId: analysisId
+                    } 
+                }));
             } catch (err) {
-                showError(err.message);
+                showError(err.message || 'Failed to load treatment plans');
             }
         });
+    }
+}
+
+// Handle close button click
+function handleCloseButtonClick(e) {
+    e.stopPropagation();
+    closeModal();
+}
+
+// Handle overlay click
+function handleOverlayClick(e) {
+    if (e.target === Elements.analysisModal || e.target === Elements.modalOverlay) {
+        closeModal();
     }
 }
 
@@ -325,7 +345,10 @@ function closeModal() {
             Elements.modalAnalysisContent.innerHTML = '';
         }
         
-        // Clean up overlay handler
+        // Clean up event listeners
+        if (Elements.modalCloseBtn) {
+            Elements.modalCloseBtn.removeEventListener('click', handleCloseButtonClick);
+        }
         if (currentOverlayHandler) {
             modal.removeEventListener('click', currentOverlayHandler);
             currentOverlayHandler = null;
@@ -348,6 +371,7 @@ function closeModal() {
         onTransitionEnd();
     }
 }
+
 
 function showDeleteConfirmation(analysisId) {
     if (!Elements.deleteConfirmationModal) return;
