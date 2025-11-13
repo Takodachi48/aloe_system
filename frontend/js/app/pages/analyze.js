@@ -317,4 +317,108 @@ export function displayResults(results) {
     }
 }
 
+// Camera functionality
+let cameraStream = null;
+let currentFacingMode = 'environment'; // Start with back camera
 
+export async function initCamera() {
+    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const cameraVideo = document.getElementById('cameraVideo');
+    const cameraCanvas = document.getElementById('cameraCanvas');
+    const cameraContainer = document.getElementById('cameraContainer');
+    const cameraError = document.getElementById('cameraError');
+
+    // Start camera automatically
+    await startCamera();
+
+    // Switch camera
+    if (switchCameraBtn) {
+        switchCameraBtn.addEventListener('click', async () => {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            await startCamera();
+        });
+    }
+
+    // Capture photo
+    if (captureBtn) {
+        captureBtn.addEventListener('click', () => {
+            const context = cameraCanvas.getContext('2d');
+            cameraCanvas.width = cameraVideo.videoWidth;
+            cameraCanvas.height = cameraVideo.videoHeight;
+            context.drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+            
+            const dataUrl = cameraCanvas.toDataURL('image/png');
+            const blob = dataURLToBlob(dataUrl);
+            const file = new File([blob], 'camera-capture.png', { type: 'image/png' });
+            
+            // Set as current file and update UI
+            AppState.currentFile = file;
+            if (Elements.previewImage) {
+                Elements.previewImage.src = dataUrl;
+            }
+            if (Elements.previewArea) {
+                Elements.previewArea.style.display = 'block';
+            }
+            if (Elements.analyzeBtn) {
+                Elements.analyzeBtn.disabled = false;
+            }
+            if (Elements.clearBtn) {
+                Elements.clearBtn.disabled = false;
+            }
+            
+            showSuccess('Photo captured successfully!');
+        });
+    }
+}
+
+async function startCamera() {
+    stopCamera();
+    
+    try {
+        const cameraError = document.getElementById('cameraError');
+        const cameraContainer = document.getElementById('cameraContainer');
+        
+        cameraError.style.display = 'none';
+        cameraContainer.style.display = 'block';
+
+        const constraints = {
+            video: {
+                facingMode: currentFacingMode,
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        };
+
+        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const cameraVideo = document.getElementById('cameraVideo');
+        cameraVideo.srcObject = cameraStream;
+        
+    } catch (error) {
+        console.error('Camera error:', error);
+        const cameraContainer = document.getElementById('cameraContainer');
+        const cameraError = document.getElementById('cameraError');
+        cameraContainer.style.display = 'none';
+        cameraError.style.display = 'block';
+    }
+}
+
+export function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+}
+
+function dataURLToBlob(dataUrl) {
+    const parts = dataUrl.split(';base64,');
+    const contentType = parts[0].split(':')[1];
+    const raw = window.atob(parts[1]);
+    const uInt8Array = new Uint8Array(raw.length);
+    
+    for (let i = 0; i < raw.length; ++i) {
+        uInt8Array[i] = raw.charCodeAt(i);
+    }
+    
+    return new Blob([uInt8Array], { type: contentType });
+}
