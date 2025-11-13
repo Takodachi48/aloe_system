@@ -3,7 +3,7 @@ import { Elements } from '../../core/elements.js';
 import { logout } from '../../services/auth.js';
 import { toggleMobileSidebar } from '../../utils/navigation.js';
 
-export function initHeader() {
+function initHeader() {
     updateUserDisplay();
     attachHeaderEventListeners();
     
@@ -12,7 +12,7 @@ export function initHeader() {
     window.addEventListener('profile-picture-updated', handleProfilePictureUpdate);
 }
 
-export function updateUserDisplay() {
+function updateUserDisplay() {
     console.log('updateUserDisplay called');
     if (Elements.userName && AppState.user) {
         console.log('Current user object:', JSON.parse(JSON.stringify(AppState.user)));
@@ -131,3 +131,10 @@ function attachHeaderEventListeners() {
         Elements.mobileNavToggle.addEventListener('click', toggleMobileSidebar);
     }
 }
+
+export { 
+    initHeader, 
+    updateUserDisplay,
+    attachHeaderEventListeners,
+    showLogoutConfirmation 
+};

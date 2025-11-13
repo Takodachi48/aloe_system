@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Community Forum - AloeShield</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/forum.css">
+</head>
+<body>
+    <!-- Header Component -->
+    <div id="header-container">
+        <!-- Header will be loaded here by JavaScript -->
+    </div>
+
+    <!-- Sidebar Component -->
+    <div id="sidebar-container">
+        <!-- Sidebar will be loaded here by JavaScript -->
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Forum Page -->
+            <div class="page active" id="forumPage">
+                <div class="forum-container">
+                    <div class="forum-header">
+                        <button class="create-post-btn" id="createPostBtn">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            New Post
+                        </button>
+                    </div>
+
+                    <div class="forum-categories">
+                        <!-- General Discussion -->
+                        <div class="category-card">
+                            <div class="category-header">
+                                <h2 class="category-title">General Discussion</h2>
+                                <span class="thread-count">24 threads</span>
+                            </div>
+                            <ul class="threads-list">
+                                <li class="thread-item">
+                                    <div class="vote-buttons">
+                                        <button class="vote-btn upvote" aria-label="Upvote">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M18 15l-6-6-6 6"/>
+                                            </svg>
+                                        </button>
+                                        <span class="vote-count">42</span>
+                                        <button class="vote-btn downvote" aria-label="Downvote">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <a href="#" class="thread-link">
+                                        <img src="" alt="Aloe plant" class="thread-preview" data-src="aloe-preview-1.jpg">
+                                        <div class="thread-content">
+                                            <h3 class="thread-title">Welcome to AloeShield Community! - Share your aloe growing journey and connect with fellow enthusiasts</h3>
+                                            <div class="thread-meta">
+                                                <span class="thread-stat">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                        <circle cx="9" cy="7" r="4"></circle>
+                                                    </svg>
+                                                    <span>12</span>
+                                                </span>
+                                                <span class="thread-stat">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                                    </svg>
+                                                    <span>24 comments</span>
+                                                </span>
+                                                <span class="thread-stat">2h ago</span>
+                                                <span class="thread-stat">by u/aloelover123</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                                <li class="thread-item">
+                                    <div class="vote-buttons">
+                                        <button class="vote-btn upvote" aria-label="Upvote">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M18 15l-6-6-6 6"/>
+                                            </svg>
+                                        </button>
+                                        <span class="vote-count">28</span>
+                                        <button class="vote-btn downvote" aria-label="Downvote">
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M6 9l6 6 6-6"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <a href="#" class="thread-link">
+                                        <img src="" alt="Aloe care tips" class="thread-preview" data-src="aloe-preview-2.jpg">
+                                        <div class="thread-content">
+                                            <h3 class="thread-title">Share your aloe growing tips and tricks - Let's help each other grow healthier plants</h3>
+                                            <div class="thread-meta">
+                                                <span class="thread-stat">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                        <circle cx="9" cy="7" r="4"></circle>
+                                                    </svg>
+                                                    <span>8</span>
+                                                </span>
+                                                <span class="thread-stat">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                                    </svg>
+                                                    <span>15 comments</span>
+                                                </span>
+                                                <span class="thread-stat">1d ago</span>
+                                                <span class="thread-stat">by u/greenthumb42</span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Disease Help -->
+                        <div class="category-card">
+                            <div class="category-header">
+                                <h2 class="category-title">Disease Help & Support</h2>
+                                <span class="thread-count">18 threads</span>
+                            </div>
+                            <ul class="threads-list">
+                                <li class="thread-item">
+                                    <a href="#" class="thread-link">
+                                        <span class="thread-title">Help! My aloe has brown spots</span>
+                                        <div class="thread-stats">
+                                            <span class="thread-stat">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                    <circle cx="9" cy="7" r="4"></circle>
+                                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                                </svg>
+                                                5
+                                            </span>
+                                            <span class="thread-stat">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                                </svg>
+                                                12
+                                            </span>
+                                            <span class="thread-stat">3h ago</span>
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Growing Tips -->
+                        <div class="category-card">
+                            <div class="category-header">
+                                <h2 class="category-title">Growing Tips & Techniques</h2>
+                                <span class="thread-count">15 threads</span>
+                            </div>
+                            <ul class="threads-list">
+                                <li class="thread-item">
+                                    <a href="#" class="thread-link">
+                                        <span class="thread-title">Best soil mix for aloe vera plants</span>
+                                        <div class="thread-stats">
+                                            <span class="thread-stat">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                                    <circle cx="9" cy="7" r="4"></circle>
+                                                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                                </svg>
+                                                7
+                                            </span>
+                                            <span class="thread-stat">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                                                </svg>
+                                                18
+                                            </span>
+                                            <span class="thread-stat">1d ago</span>
+                                        </div>
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="logout-confirmation-modal" id="logoutConfirmationModal">
+        <div class="modal-overlay" id="logoutConfirmationOverlay"></div>
+        <div class="confirmation-content">
+            <div class="confirmation-icon logout-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5m0 0l-5-5m5 5H9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            </div>
+            <h3>Sign Out</h3>
+            <p>Are you sure you want to sign out? You'll need to log in again to access your account.</p>
+            <div class="confirmation-actions">
+                <button class="btn btn-outline" id="logoutConfirmationCancel">Cancel</button>
+                <button class="btn btn-danger" id="logoutConfirmationConfirm">Sign Out</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="js/core/elements.js"></script>
+    <script type="module" src="js/utils/navigation.js"></script>
+    <script type="module" src="js/init/forum-init.js"></script>
+</body>
+</html>

@@ -20,25 +20,52 @@ const pageHeaderMap = {
     settings: {
         title: 'Settings',
         subtitle: 'Configure your preferences'
+    },
+    forum: {
+        title: 'Community Forum',
+        subtitle: 'Connect with other aloe vera enthusiasts and share your experiences'
     }
 };
 
 export function updateHeaderForPage(pageId) {
+    console.log('Updating header for page:', pageId);
     const info = pageHeaderMap[pageId] || { title: 'AloeShield', subtitle: '' };
-    if (Elements.headerPageTitle) Elements.headerPageTitle.textContent = info.title;
-    if (Elements.headerPageSubtitle) Elements.headerPageSubtitle.textContent = info.subtitle;
+    
+    // Debug: Log the elements we're trying to update
+    const titleEl = Elements.headerPageTitle;
+    const subtitleEl = Elements.headerPageSubtitle;
+    
+    console.log('Header elements:', { titleEl, subtitleEl });
+    
+    if (titleEl) {
+        console.log('Setting title to:', info.title);
+        titleEl.textContent = info.title;
+    } else {
+        console.error('Header title element not found!');
+    }
+    
+    if (subtitleEl) {
+        console.log('Setting subtitle to:', info.subtitle);
+        subtitleEl.textContent = info.subtitle;
+    } else {
+        console.error('Header subtitle element not found!');
+    }
 }
 
-export function navigateToPage(pageId, callbacks = {}) {
+// Function to show a specific page and hide others
+export function showPage(pageId) {
+    // Hide all pages first
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
     });
     
+    // Show the target page
     const targetPage = document.getElementById(pageId + 'Page');
     if (targetPage) {
         targetPage.classList.add('active');
     }
     
+    // Update active nav item
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
     });
@@ -47,13 +74,38 @@ export function navigateToPage(pageId, callbacks = {}) {
     if (activeNavItem) {
         activeNavItem.classList.add('active');
     }
+}
+
+export function navigateToPage(pageId, callbacks = {}) {
+    // Update the URL to reflect the current page
+    if (window.location.pathname !== '/forum.html') {
+        const newUrl = `/app?page=${pageId}`;
+        if (window.location.pathname + window.location.search !== newUrl) {
+            window.history.pushState({ page: pageId }, '', newUrl);
+        }
+    }
     
+    // Show the target page immediately
+    showPage(pageId);
+    
+    // Update active state in navigation
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(item => {
+        item.classList.remove('active');
+        if (item.getAttribute('data-page') === pageId) {
+            item.classList.add('active');
+        }
+    });
+    
+    // Close mobile sidebar on small screens
     if (window.innerWidth <= 768) {
         closeMobileSidebar();
     }
     
+    // Update header for the current page
     updateHeaderForPage(pageId);
     
+    // Call the callback if provided
     if (callbacks[pageId]) {
         callbacks[pageId]();
     }

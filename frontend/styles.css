@@ -4,6 +4,19 @@
     box-sizing: border-box;
 }
 
+/* Hide all pages by default */
+.page {
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
+}
+
+/* Show active page */
+.page.active {
+    display: block;
+    opacity: 1;
+}
+
 /* Dynamic header title/subtitle */
 .header-page-info {
     display: flex;
@@ -1784,10 +1797,11 @@ h1 {
     font-weight: 600;
 }
 
-#deleteConfirmationMessage {
-    margin: 0 0 28px 0;
-    color: #666;
+#deleteConfirmationMessage, .confirmation-content p {
+    margin: 0 0 24px 0;
+    color: #6c757d;
     font-size: 0.95em;
+    line-height: 1.5;
     line-height: 1.5;
 }
 
