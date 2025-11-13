@@ -321,22 +321,67 @@ export function displayResults(results) {
 let cameraStream = null;
 let currentFacingMode = 'environment'; // Start with back camera
 
+// Initialize camera UI elements and event listeners
 export async function initCamera() {
-    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    const openCameraBtn = document.getElementById('openCameraBtn');
     const captureBtn = document.getElementById('captureBtn');
+    const cancelCameraBtn = document.getElementById('cancelCameraBtn');
     const cameraVideo = document.getElementById('cameraVideo');
     const cameraCanvas = document.getElementById('cameraCanvas');
     const cameraContainer = document.getElementById('cameraContainer');
     const cameraError = document.getElementById('cameraError');
+    const uploadArea = document.getElementById('uploadArea');
 
-    // Start camera automatically
-    await startCamera();
+    // Open camera when the button is clicked
+    if (openCameraBtn) {
+        openCameraBtn.addEventListener('click', async () => {
+            try {
+                // Show camera container first
+                cameraContainer.style.display = 'block';
+                
+                // Hide the upload area but keep the card visible
+                const uploadIcon = uploadArea.querySelector('.upload-icon');
+                const uploadText = uploadArea.querySelector('.upload-text');
+                const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+                const uploadButtons = uploadArea.querySelector('.upload-buttons');
+                
+                if (uploadIcon) uploadIcon.style.display = 'none';
+                if (uploadText) uploadText.style.display = 'none';
+                if (uploadSubtext) uploadSubtext.style.display = 'none';
+                if (uploadButtons) uploadButtons.style.display = 'none';
+                
+                // Start the camera
+                await startCamera();
+                
+            } catch (error) {
+                console.error('Failed to open camera:', error);
+                showError('Failed to access camera. Please check your camera permissions.');
+                // Reset UI on error
+                cameraContainer.style.display = 'none';
+                if (uploadIcon) uploadIcon.style.display = '';
+                if (uploadText) uploadText.style.display = '';
+                if (uploadSubtext) uploadSubtext.style.display = '';
+                if (uploadButtons) uploadButtons.style.display = '';
+            }
+        });
+    }
 
-    // Switch camera
-    if (switchCameraBtn) {
-        switchCameraBtn.addEventListener('click', async () => {
-            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-            await startCamera();
+    // Cancel camera
+    if (cancelCameraBtn) {
+        cancelCameraBtn.addEventListener('click', () => {
+            stopCamera();
+            cameraContainer.style.display = 'none';
+            
+            // Show the upload area elements again
+            const uploadIcon = uploadArea.querySelector('.upload-icon');
+            const uploadText = uploadArea.querySelector('.upload-text');
+            const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+            const uploadButtons = uploadArea.querySelector('.upload-buttons');
+            
+            if (uploadIcon) uploadIcon.style.display = '';
+            if (uploadText) uploadText.style.display = '';
+            if (uploadSubtext) uploadSubtext.style.display = '';
+            if (uploadButtons) uploadButtons.style.display = '';
         });
     }
 
@@ -351,6 +396,9 @@ export async function initCamera() {
             const dataUrl = cameraCanvas.toDataURL('image/png');
             const blob = dataURLToBlob(dataUrl);
             const file = new File([blob], 'camera-capture.png', { type: 'image/png' });
+            
+            // Stop camera after capturing
+            stopCamera();
             
             // Set as current file and update UI
             AppState.currentFile = file;
@@ -367,20 +415,36 @@ export async function initCamera() {
                 Elements.clearBtn.disabled = false;
             }
             
+            // Reset UI after capturing
+            cameraContainer.style.display = 'none';
+            
+            // Restore the upload area elements
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadIcon = uploadArea.querySelector('.upload-icon');
+            const uploadText = uploadArea.querySelector('.upload-text');
+            const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+            const uploadButtons = uploadArea.querySelector('.upload-buttons');
+            
+            if (uploadIcon) uploadIcon.style.display = '';
+            if (uploadText) uploadText.style.display = '';
+            if (uploadSubtext) uploadSubtext.style.display = '';
+            if (uploadButtons) uploadButtons.style.display = '';
+            
+            // Show success message
             showSuccess('Photo captured successfully!');
         });
     }
 }
 
+// Start the camera
 async function startCamera() {
-    stopCamera();
+    stopCamera(); // Stop any existing camera stream
     
     try {
         const cameraError = document.getElementById('cameraError');
-        const cameraContainer = document.getElementById('cameraContainer');
+        const cameraVideo = document.getElementById('cameraVideo');
         
         cameraError.style.display = 'none';
-        cameraContainer.style.display = 'block';
 
         const constraints = {
             video: {
@@ -391,22 +455,36 @@ async function startCamera() {
         };
 
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const cameraVideo = document.getElementById('cameraVideo');
         cameraVideo.srcObject = cameraStream;
+        
+        return new Promise((resolve) => {
+            cameraVideo.onloadedmetadata = () => {
+                cameraVideo.play();
+                resolve();
+            };
+        });
         
     } catch (error) {
         console.error('Camera error:', error);
-        const cameraContainer = document.getElementById('cameraContainer');
         const cameraError = document.getElementById('cameraError');
-        cameraContainer.style.display = 'none';
         cameraError.style.display = 'block';
+        throw error; // Re-throw to handle in the calling function
     }
 }
 
+// Stop the camera and clean up
 export function stopCamera() {
     if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach(track => {
+            track.stop();
+        });
         cameraStream = null;
+    }
+    
+    // Clear video source
+    const cameraVideo = document.getElementById('cameraVideo');
+    if (cameraVideo) {
+        cameraVideo.srcObject = null;
     }
 }
 
