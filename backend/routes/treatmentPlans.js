@@ -151,7 +151,7 @@ function normalizePrediction(prediction, source, fallback = {}) {
 // Create a treatment plan from an analysis
 router.post('/', authMiddleware, async (req, res) => {
     try {
-        const { analysisId, diseaseKey, diseaseName, imageUrl } = req.body;
+        const { analysisId, diseaseKey, diseaseName, imageUrl, potName } = req.body;
         if (!analysisId || !diseaseKey || !diseaseName || !imageUrl) {
             return res.status(400).json({ success: false, message: 'analysisId, diseaseKey, diseaseName, imageUrl are required' });
         }
@@ -166,6 +166,7 @@ router.post('/', authMiddleware, async (req, res) => {
             analysisId,
             diseaseKey,
             diseaseName,
+            potName: potName || 'Unnamed Pot',
             status: 'active', // active | completed_success | leaf_removal_recommended
             createdAt: now,
             updatedAt: now,

@@ -36,6 +36,12 @@ export function resetForNewUpload() {
         Elements.fileInput.value = '';
     }
 
+    // Clear pot name
+    const potNameInput = document.getElementById('potName');
+    if (potNameInput) {
+        potNameInput.value = '';
+    }
+
     // Hide progress bar
     hideProgressBar();
 }
@@ -74,7 +80,16 @@ export async function analyzeImage() {
         showLoading('Analyzing image...');
         setProgressBar(75);
         
-        const analysisResponse = await ApiService.analyzeImage(AppState.currentUploadData);
+        // Get pot name
+        const potNameInput = document.getElementById('potName');
+        const potName = potNameInput ? potNameInput.value.trim() : '';
+        console.log('Pot name from input:', potName);
+        
+        const analysisResponse = await ApiService.analyzeImage({
+            ...AppState.currentUploadData,
+            potName: potName || 'Unnamed Pot'
+        });
+        console.log('Analysis response potName:', analysisResponse.data.potName);
 
         if (!analysisResponse.success || !analysisResponse.data) {
             throw new Error('Invalid analysis response from server');
@@ -176,6 +191,15 @@ export function displayResults(results) {
     if (Elements.resultsContainer) {
         const isHealthy = results.status === 'healthy' || results.diseaseKey === 'healthy' || /healthy/i.test(results.disease || '');
         Elements.resultsContainer.innerHTML = `
+            ${results.potName ? `
+            <div class="result-item">
+                <div class="result-label">Pot Name</div>
+                <div class="result-value pot-name-display" data-analysis-id="${results.analysisId}">
+                    <span class="pot-name-text">${results.potName}</span>
+                    <button class="btn btn-sm btn-outline edit-pot-name-btn" style="margin-left: 8px; padding: 2px 8px; font-size: 0.8em;">Edit</button>
+                </div>
+            </div>
+            ` : ''}
             <div class="result-item">
                 <div class="result-label">Detection Result</div>
                 <div class="result-value">${results.disease}</div>
@@ -214,7 +238,8 @@ export function displayResults(results) {
                         analysisId: AppState.lastAnalysis.analysisId,
                         diseaseKey: AppState.lastAnalysis.diseaseKey,
                         diseaseName: AppState.lastAnalysis.disease,
-                        imageUrl: AppState.lastAnalysis.imagePath
+                        imageUrl: AppState.lastAnalysis.imagePath,
+                        potName: AppState.lastAnalysis.potName || 'Unnamed Pot'
                     });
                     hideLoading();
                     showSuccess('Treatment plan created');
@@ -227,6 +252,99 @@ export function displayResults(results) {
                     hideLoading();
                     showError(e.message);
                 }
+            });
+        }
+
+        // Add event listener for edit pot name button
+        const editBtn = Elements.resultsContainer.querySelector('.edit-pot-name-btn');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                const potNameDisplay = editBtn.closest('.pot-name-display');
+                const analysisId = potNameDisplay.dataset.analysisId;
+                const currentName = potNameDisplay.querySelector('.pot-name-text').textContent;
+
+                // Replace with input field
+                potNameDisplay.innerHTML = `
+                    <input type="text" class="pot-name-input" value="${currentName}" style="flex: 1; padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; margin-right: 8px;">
+                    <button class="btn btn-sm btn-primary save-pot-name-btn" style="padding: 2px 8px; font-size: 0.8em;">Save</button>
+                    <button class="btn btn-sm btn-outline cancel-edit-btn" style="padding: 2px 8px; font-size: 0.8em;">Cancel</button>
+                `;
+
+                // Focus on input
+                const input = potNameDisplay.querySelector('.pot-name-input');
+                input.focus();
+                input.select();
+
+                // Save button
+                const saveBtn = potNameDisplay.querySelector('.save-pot-name-btn');
+                saveBtn.addEventListener('click', async () => {
+                    const newName = input.value.trim();
+                    if (!newName) {
+                        showError('Pot name cannot be empty');
+                        return;
+                    }
+
+                    try {
+                        showLoading('Updating pot name...');
+                        await ApiService.updatePotName(analysisId, newName);
+                        hideLoading();
+                        showSuccess('Pot name updated successfully');
+
+                        // Update display
+                        potNameDisplay.innerHTML = `
+                            <span class="pot-name-text">${newName}</span>
+                            <button class="btn btn-sm btn-outline edit-pot-name-btn" style="margin-left: 8px; padding: 2px 8px; font-size: 0.8em;">Edit</button>
+                        `;
+
+                        // Update AppState if this is the current analysis
+                        if (AppState.lastAnalysis && AppState.lastAnalysis.analysisId === analysisId) {
+                            AppState.lastAnalysis.potName = newName;
+                        }
+
+                        // Re-attach edit button listener
+                        const newEditBtn = potNameDisplay.querySelector('.edit-pot-name-btn');
+                        if (newEditBtn) {
+                            newEditBtn.addEventListener('click', () => {
+                                // This will trigger the outer edit button handler
+                                const event = new Event('click');
+                                newEditBtn.dispatchEvent(event);
+                            });
+                        }
+
+                    } catch (error) {
+                        hideLoading();
+                        showError('Failed to update pot name: ' + error.message);
+                    }
+                });
+
+                // Cancel button
+                const cancelBtn = potNameDisplay.querySelector('.cancel-edit-btn');
+                cancelBtn.addEventListener('click', () => {
+                    // Restore original display
+                    potNameDisplay.innerHTML = `
+                        <span class="pot-name-text">${currentName}</span>
+                        <button class="btn btn-sm btn-outline edit-pot-name-btn" style="margin-left: 8px; padding: 2px 8px; font-size: 0.8em;">Edit</button>
+                    `;
+
+                    // Re-attach edit button listener
+                    const restoredEditBtn = potNameDisplay.querySelector('.edit-pot-name-btn');
+                    if (restoredEditBtn) {
+                        restoredEditBtn.addEventListener('click', () => {
+                            // This will trigger the outer edit button handler
+                            const event = new Event('click');
+                            restoredEditBtn.dispatchEvent(event);
+                        });
+                    }
+                });
+
+                // Handle Enter key
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        saveBtn.click();
+                    } else if (e.key === 'Escape') {
+                        cancelBtn.click();
+                    }
+                });
             });
         }
     }

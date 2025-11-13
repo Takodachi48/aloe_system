@@ -31,7 +31,8 @@ export const ApiService = {
                 filename: uploadData.filename,
                 originalName: uploadData.originalName,
                 fileSize: uploadData.size,
-                mimeType: uploadData.mimetype
+                mimeType: uploadData.mimetype,
+                potName: uploadData.potName
             })
         });
 
@@ -87,10 +88,28 @@ export const ApiService = {
             method: 'DELETE',
             headers: getAuthHeaders()
         });
-        
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.message || 'Failed to delete analysis');
+        }
+
+        return response.json();
+    },
+
+    async updatePotName(analysisId, potName) {
+        const response = await fetch(`${AppState.apiBaseUrl}/api/analysis/${analysisId}/pot-name`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({ potName })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to update pot name');
         }
 
         return response.json();
@@ -122,11 +141,11 @@ export const ApiService = {
         return response.json();
     }
     ,
-    async createTreatmentPlan({ analysisId, diseaseKey, diseaseName, imageUrl }) {
+    async createTreatmentPlan({ analysisId, diseaseKey, diseaseName, imageUrl, potName }) {
         const response = await fetch(`${AppState.apiBaseUrl}/api/treatment-plans`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-            body: JSON.stringify({ analysisId, diseaseKey, diseaseName, imageUrl })
+            body: JSON.stringify({ analysisId, diseaseKey, diseaseName, imageUrl, potName })
         });
         if (!response.ok) throw new Error((await response.json()).message || 'Failed to create plan');
         return response.json();
