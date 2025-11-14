@@ -6,7 +6,7 @@ import { initSidebar } from './components/sidebar.js';
 import { analyzeImage, initCamera } from './pages/analyze.js';
 import { loadHistoryPage, viewAnalysis, deleteAnalysis } from './pages/history.js';
 import { generateDiseaseGuide } from './pages/diseases.js';
-import { initSettingsPage, loadDarkModeSetting } from './pages/settings.js';
+import { initSettingsPage } from './pages/settings.js';
 import { initWeatherPage } from './pages/weather.js';
 import { initTreatmentPlansUI } from './pages/treatmentPlans.js';
 import { updateHeaderForPage } from '../utils/navigation.js';
@@ -27,14 +27,24 @@ class AloeShieldApp {
         try {
             console.log('Initializing AloeShield Application...');
             
-            loadDarkModeSetting();
-            
             const authenticated = await checkAuthentication();
             if (!authenticated) return;
 
+            // Update the UI with the current user data
+            if (AppState.user) {
+                console.log('Updating UI with user data:', { 
+                    name: AppState.user.name,
+                    hasProfilePicture: !!AppState.user.profilePicture 
+                });
+                updateUserDisplay();
+            }
+
             this.setupEventListeners();
             this.setupComponents();
-            
+
+            // Navigate to page based on URL parameter
+            this.navigateFromUrl();
+
             this.initialized = true;
             console.log('AloeShield Application Initialized Successfully');
         } catch (error) {
@@ -113,10 +123,56 @@ class AloeShieldApp {
     updateUserDisplay() {
         updateUserDisplay();
     }
+
+    navigateFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const page = urlParams.get('page');
+        
+        if (page) {
+            // Navigate to the specified page
+            const navItem = document.querySelector(`[data-page="${page}"]`);
+            if (navItem) {
+                navItem.click();
+            }
+        } else if (window.location.pathname.endsWith('forum.html')) {
+            // If on forum page, ensure forum nav item is active
+            const forumNav = document.querySelector('[data-page="forum"]');
+            if (forumNav) {
+                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                forumNav.classList.add('active');
+            }
+        } else {
+            // Default to analyze page
+            const analyzeNav = document.querySelector('[data-page="analyze"]');
+            if (analyzeNav) {
+                analyzeNav.click();
+            }
+        }
+    }
 }
 
-window.app = new AloeShieldApp();
+// Create global app instance
+const app = new AloeShieldApp();
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.app.init();
-});
+// Expose the app instance globally
+// Export the initializeApp function for use in other modules
+export async function initializeApp() {
+    try {
+        const app = new AloeShieldApp();
+        await app.init();
+        return app;
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        throw error;
+    }
+}
+
+// For backward compatibility
+window.AloeShieldApp = { init: initializeApp };
+
+// Auto-initialize when loaded directly (not as a module)
+if (!window.__esModule) {
+    document.addEventListener('DOMContentLoaded', () => {
+        initializeApp().catch(console.error);
+    });
+}

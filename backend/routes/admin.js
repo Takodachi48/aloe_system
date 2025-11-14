@@ -78,7 +78,15 @@ const sseClients = new Set();
 
 // Function to notify all connected clients of maintenance state changes
 function notifyMaintenanceUpdate() {
-    const data = JSON.stringify({ type: 'maintenanceUpdate', data: maintenanceState });
+    const data = JSON.stringify({ 
+        type: 'maintenance', 
+        maintenance: maintenanceState.active,
+        message: maintenanceState.message,
+        startDate: maintenanceState.startDate,
+        endDate: maintenanceState.endDate
+    });
+    
+    // Notify SSE clients
     for (const client of sseClients) {
         try {
             client.res.write(`data: ${data}\n\n`);
@@ -87,6 +95,16 @@ function notifyMaintenanceUpdate() {
             // Remove the client if there's an error
             sseClients.delete(client);
         }
+    }
+    
+    // Also broadcast to all connected WebSocket clients if needed
+    if (global.io) {
+        global.io.emit('maintenance', {
+            maintenance: maintenanceState.active,
+            message: maintenanceState.message,
+            startDate: maintenanceState.startDate,
+            endDate: maintenanceState.endDate
+        });
     }
 }
 
@@ -215,6 +233,37 @@ async function checkMaintenanceSchedule() {
             maintenanceState.active = true;
             stateChanged = true;
             console.log('Maintenance mode activated');
+            
+            // Update database with active maintenance state
+            try {
+                const db = getDb();
+                await db.collection('system_state').updateOne(
+                    { _id: 'maintenance' },
+                    {
+                        $set: {
+                            'scheduledMaintenance': {
+                                active: true,
+                                startDate: maintenanceState.startDate,
+                                endDate: maintenanceState.endDate,
+                                message: maintenanceState.message
+                            },
+                            lastUpdated: new Date()
+                        },
+                        $push: {
+                            history: {
+                                type: 'maintenance_started',
+                                timestamp: new Date(),
+                                startDate: maintenanceState.startDate,
+                                endDate: maintenanceState.endDate,
+                                message: maintenanceState.message
+                            }
+                        }
+                    },
+                    { upsert: true }
+                );
+            } catch (error) {
+                console.error('Error updating maintenance state in database:', error);
+            }
             
             // Only create a "now active" announcement if we haven't already created a scheduled one
             if (!maintenanceState.announcementCreated) {
@@ -366,11 +415,16 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
         const db = getDb();
         const usersCollection = db.collection('users');
         
-        const users = await usersCollection
-            .find({})
-            .project({ password: 0 })
-            .sort({ createdAt: -1 })
-            .toArray();
+        // First get all users with password excluded
+        const users = await usersCollection.find(
+            {},
+            {
+                projection: {
+                    password: 0 // Exclude only the password field
+                },
+                sort: { createdAt: -1 }
+            }
+        ).toArray();
         
         res.json({
             success: true,
@@ -485,55 +539,7 @@ router.put('/users/:userId/status', authMiddleware, adminMiddleware, async (req,
     }
 });
 
-// Delete user
-router.delete('/users/:userId', authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-        const { userId } = req.params;
-        
-        // Prevent deleting yourself
-        if (userId === req.user.userId.toString()) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot delete your own account'
-            });
-        }
-        
-        const db = getDb();
-        const usersCollection = db.collection('users');
-        
-        // Check if user is admin and if they're the last admin
-        const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
-        if (user && user.isAdmin) {
-            const adminCount = await usersCollection.countDocuments({ isAdmin: true });
-            if (adminCount <= 1) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Cannot delete the last administrator'
-                });
-            }
-        }
-        
-        const result = await usersCollection.deleteOne({ _id: new ObjectId(userId) });
-        
-        if (result.deletedCount === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-        
-        res.json({
-            success: true,
-            message: 'User deleted successfully'
-        });
-    } catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Error deleting user'
-        });
-    }
-});
+// User deletion functionality has been removed
 
 // Get all announcements
 router.get('/announcements', authMiddleware, adminMiddleware, async (req, res) => {
@@ -757,20 +763,64 @@ router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
     }
 });
 
-// Get maintenance status
-router.get('/maintenance/status', authMiddleware, adminMiddleware, (req, res) => {
-    // Run a check before sending status
-    checkMaintenanceSchedule();
-    res.json({
-        success: true,
-        data: {
-            active: maintenanceState.active,
-            startDate: maintenanceState.startDate,
-            endDate: maintenanceState.endDate,
-            message: maintenanceState.message,
-            lastMaintenance: maintenanceState.lastMaintenance
+// Get maintenance status (public endpoint, no auth required)
+router.get('/maintenance/status', async (req, res) => {
+    try {
+        const db = getDb();
+        const systemState = await db.collection('system_state').findOne({ _id: 'maintenance' });
+        const now = new Date();
+        
+        // Check if there's an active maintenance flag in the state
+        if (maintenanceState.active) {
+            return res.status(200).json({
+                maintenance: true,
+                message: maintenanceState.message || 'System is under maintenance',
+                startDate: maintenanceState.startDate,
+                endDate: maintenanceState.endDate,
+                estimatedEnd: maintenanceState.endDate
+            });
         }
-    });
+        
+        // Fallback to checking scheduled maintenance
+        if (systemState && systemState.scheduledMaintenance && systemState.scheduledMaintenance.active) {
+            const { startDate, endDate, message } = systemState.scheduledMaintenance;
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            
+            // If current time is within maintenance window
+            if (now >= start && now <= end) {
+                return res.status(200).json({
+                    maintenance: true,
+                    message: message || 'System is under maintenance',
+                    startDate: start,
+                    endDate: end,
+                    estimatedEnd: end
+                });
+            } 
+            // If maintenance is scheduled but hasn't started yet
+            else if (now < start) {
+                return res.status(200).json({
+                    maintenance: false,
+                    scheduled: true,
+                    message: `Maintenance scheduled from ${start.toLocaleString()} to ${end.toLocaleString()}`,
+                    startDate: start,
+                    endDate: end
+                });
+            }
+        }
+        
+        // No active or scheduled maintenance
+        res.status(200).json({
+            maintenance: false,
+            message: 'System is operating normally'
+        });
+    } catch (error) {
+        console.error('Error checking maintenance status:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error checking maintenance status'
+        });
+    }
 });
 
 // Get maintenance history
@@ -822,12 +872,70 @@ router.post('/maintenance', authMiddleware, adminMiddleware, async (req, res) =>
         maintenanceState.announcementCreated = false;
         maintenanceState.completionAnnouncementCreated = false;
         
-        // Check if maintenance should start immediately and create announcement
-        await checkMaintenanceSchedule();
-        
         // Ensure active flag is set if start time is now or in the past
-        if (now >= new Date(startDate) && now <= new Date(endDate)) {
-            maintenanceState.active = true;
+        const isActiveNow = now >= new Date(startDate) && now <= new Date(endDate);
+        maintenanceState.active = isActiveNow;
+        
+        // Save to database
+        try {
+            const db = getDb();
+            const systemState = await db.collection('system_state').findOne({ _id: 'maintenance' });
+            
+            const maintenanceRecord = {
+                type: isActiveNow ? 'maintenance_started' : 'maintenance_scheduled',
+                timestamp: new Date(),
+                startDate: startDate,
+                endDate: endDate,
+                message: message
+            };
+            
+            const update = {
+                $set: {
+                    'scheduledMaintenance': {
+                        active: isActiveNow,
+                        startDate: startDate,
+                        endDate: endDate,
+                        message: message
+                    },
+                    lastUpdated: new Date()
+                },
+                $push: {
+                    history: {
+                        $each: [maintenanceRecord],
+                        $slice: -100 // Keep only the last 100 records
+                    }
+                }
+            };
+            
+            await db.collection('system_state').updateOne(
+                { _id: 'maintenance' },
+                update,
+                { upsert: true }
+            );
+            
+            console.log('Maintenance state saved to database:', {
+                active: isActiveNow,
+                startDate: startDate,
+                endDate: endDate,
+                message: message
+            });
+            
+            // Check if maintenance should start immediately and create announcement
+            await checkMaintenanceSchedule();
+            
+            // Force update the maintenance state in memory
+            maintenanceState = {
+                ...maintenanceState,
+                active: isActiveNow,
+                lastMaintenance: isActiveNow ? null : maintenanceState.lastMaintenance
+            };
+            
+            // Notify all connected clients
+            notifyMaintenanceUpdate();
+            
+        } catch (error) {
+            console.error('Error saving maintenance state to database:', error);
+            throw error;
         }
         
         res.json({
@@ -876,9 +984,12 @@ router.post('/maintenance/end-early', authMiddleware, adminMiddleware, async (re
         // Update the database
         try {
             const db = getDb();
-            // Update the system state with the new maintenance record
+            // Update the system state with the new maintenance record and clear scheduled maintenance
             const update = {
-                $set: { lastMaintenance: endTime },
+                $set: { 
+                    lastMaintenance: endTime,
+                    scheduledMaintenance: null  // Clear the scheduled maintenance
+                },
                 $push: { 
                     history: {
                         $each: [maintenanceRecord],
@@ -887,6 +998,7 @@ router.post('/maintenance/end-early', authMiddleware, adminMiddleware, async (re
                 }
             };
             await updateSystemState(db, update);
+            console.log('Maintenance state updated in database - maintenance ended early');
         } catch (error) {
             console.error('Error updating maintenance history in database:', error);
             return res.status(500).json({
@@ -1295,4 +1407,89 @@ router.get('/analytics/hourly-activity', authMiddleware, adminMiddleware, async 
     }
 });
 
+// Get dataset statistics
+router.get('/analytics/dataset-stats', authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+        const fs = require('fs').promises;
+        const path = require('path');
+        
+        // Path to the datasets directory (adjust as needed)
+        const datasetsPath = path.join(__dirname, '..', 'ml_service', 'datasets');
+        
+        // Initialize result object
+        const result = {
+            train: {},
+            validation: {}
+        };
+
+        // Function to count images in a directory
+        async function countImages(dirPath) {
+            try {
+                const files = await fs.readdir(dirPath, { withFileTypes: true });
+                // Count only files with image extensions
+                return files.filter(file => 
+                    file.isFile() && 
+                    /\.(jpg|jpeg|png|gif|bmp)$/i.test(file.name)
+                ).length;
+            } catch (error) {
+                console.error(`Error reading directory ${dirPath}:`, error);
+                return 0;
+            }
+        }
+
+        // Process train and validation directories
+        const trainPath = path.join(datasetsPath, 'train');
+        const valPath = path.join(datasetsPath, 'validation');
+        
+        try {
+            // Process train directory
+            const trainDirs = await fs.readdir(trainPath, { withFileTypes: true });
+            for (const dir of trainDirs) {
+                if (dir.isDirectory()) {
+                    const dirPath = path.join(trainPath, dir.name);
+                    const imageCount = await countImages(dirPath);
+                    if (imageCount > 0) {
+                        result.train[dir.name] = imageCount;
+                    }
+                }
+            }
+            
+            // Process validation directory
+            const valDirs = await fs.readdir(valPath, { withFileTypes: true });
+            for (const dir of valDirs) {
+                if (dir.isDirectory()) {
+                    const dirPath = path.join(valPath, dir.name);
+                    const imageCount = await countImages(dirPath);
+                    if (imageCount > 0) {
+                        result.validation[dir.name] = imageCount;
+                    }
+                }
+            }
+            
+            res.json({
+                success: true,
+                data: result
+            });
+            
+        } catch (error) {
+            console.error('Error reading dataset directories:', error);
+            // Return empty data if there's an error reading directories
+            res.json({
+                success: true,
+                data: result
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error fetching dataset statistics:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching dataset statistics',
+            error: error.message
+        });
+    }
+});
+
 module.exports = router;
+module.exports.getMaintenanceState = getMaintenanceState;
+module.exports.notifyMaintenanceUpdate = notifyMaintenanceUpdate;

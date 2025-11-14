@@ -5,6 +5,7 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 const database = require('./database/database');
 const { getDb } = require('./database/database');
@@ -20,7 +21,9 @@ const uploadRoutes = require('./routes/upload');
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
 const weatherRoutes = require('./routes/weather');
+const statusRoutes = require('./routes/status');
 const treatmentPlanRoutes = require('./routes/treatmentPlans');
+const analyticsRoutes = require('./routes/analytics');
 const healthCheckService = require('./services/healthCheck');
 
 // Security middleware
@@ -127,6 +130,20 @@ app.use((req, res, next) => {
 
 // API Routes - MUST come before static files and catch-all
 console.log('Registering API routes...');
+
+// Public routes (no auth required)
+app.use('/api/status', statusRoutes);
+
+// Apply maintenance check to all API routes except status
+app.use('/api', (req, res, next) => {
+    // Skip maintenance check for admin routes and status endpoint
+    if (req.path.startsWith('/admin') || req.path === '/status') {
+        return next();
+    }
+    maintenanceMiddleware(req, res, next);
+});
+
+// Protected routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analysis', analysisRoutes);
@@ -135,6 +152,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/cloudinary', require('./routes/cloudinary'));
+app.use('/api/analytics', analyticsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -153,32 +171,47 @@ app.use('/uploads', express.static(uploadsDir));
 
 // Serve static files from frontend folder
 const frontendDir = path.join(__dirname, '../frontend');
-app.use(express.static(frontendDir));
 
-// Serve frontend - catch-all route for SPA (after API routes and static files)
-app.get('*', (req, res) => {
-    // Only serve index.html for non-API routes
-    if (!req.path.startsWith('/api/')) {
-        res.sendFile(path.join(frontendDir, 'index.html'));
-    } else {
-        res.status(404).json({
-            success: false,
-            message: 'API endpoint not found'
-        });
-    }
+// Serve landing page as the default route - before static files
+app.get('/', (req, res) => {
+    res.sendFile(path.join(frontendDir, 'landing.html'));
 });
 
-app.get('/login.html', (req, res) => {
+// Serve static files (except HTML files, which we'll handle explicitly)
+app.use(express.static(frontendDir, {
+    extensions: ['html', 'htm'],
+    index: false // Disable automatic index.html serving
+}));
+
+// Explicit routes for HTML files
+app.get('/login', (req, res) => {
     res.sendFile(path.join(frontendDir, 'login.html'));
 });
 
-app.get('/admin.html', (req, res) => {
+app.get('/admin', (req, res) => {
     res.sendFile(path.join(frontendDir, 'admin.html'));
+});
+
+// Serve index.html for the main app routes
+app.get(['/app', '/app/*'], (req, res) => {
+    res.sendFile(path.join(frontendDir, 'index.html'));
 });
 
 // Catch-all for SPA routing - MUST be last
 app.get('*', (req, res) => {
-    res.sendFile(path.join(frontendDir, 'index.html'));
+    const filePath = path.join(frontendDir, req.path);
+    const fileExt = path.extname(filePath).toLowerCase();
+    
+    // If the request has a file extension, try to serve the file
+    if (fileExt && fileExt !== '.html' && fileExt !== '.htm') {
+        if (fs.existsSync(filePath)) {
+            return res.sendFile(filePath);
+        }
+        return res.status(404).send('Not found');
+    }
+    
+    // For all other requests, serve the landing page
+    res.sendFile(path.join(frontendDir, 'landing.html'));
 });
 
 // Error handling middleware

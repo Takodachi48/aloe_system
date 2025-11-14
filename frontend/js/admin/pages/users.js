@@ -43,13 +43,14 @@ const AdminUsers = (() => {
         if (!tbody) return;
         
         if (window.AdminState.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No users found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No users found</td></tr>';
             return;
         }
         
         tbody.innerHTML = window.AdminState.users.map(user => `
             <tr class="${user.isActive === false ? 'user-inactive' : ''}" data-user-id="${user._id}">
                 <td><strong>${escapeHtml(user.name)}</strong></td>
+                <td>${user.username ? escapeHtml(user.username) : '<span class="text-muted">N/A</span>'}</td>
                 <td>${escapeHtml(user.email)}</td>
                 <td>
                     <span class="user-role-badge ${user.isActive === false ? 'role-inactive' : (user.isAdmin ? 'role-admin' : 'role-user')}">
@@ -79,15 +80,7 @@ const AdminUsers = (() => {
                                 ${user.isActive === false ? 'Activate' : 'Deactivate'}
                             </button>
                         ` : ''}
-                        ${(!user.isAdmin || (window.AdminState?.users?.filter(u => u.isAdmin).length || 0) > 1) && user._id !== (window.AdminState?.user?.id) ? `
-                            <button class="btn btn-danger btn-small btn-delete-user" data-user-id="${user._id}" data-user-name="${escapeHtml(user.name)}">
-                                <svg viewBox="0 0 24 24" width="14" height="14">
-                                    <polyline points="3 6 5 6 21 6"></polyline>
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                </svg>
-                                Delete
-                            </button>
-                        ` : ''}
+                        <!-- Delete button has been removed -->
                     </div>
                 </td>
             </tr>
@@ -202,13 +195,7 @@ const AdminUsers = (() => {
             });
         });
         
-        document.querySelectorAll('.btn-delete-user').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const userId = btn.dataset.userId;
-                const userName = btn.dataset.userName;
-                confirmDeleteUser(userId, userName);
-            });
-        });
+        // Delete button event listeners have been removed
     };
 
     const init = async () => {

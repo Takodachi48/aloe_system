@@ -60,7 +60,6 @@ function displayHistoryItems(items) {
                         <td class="history-date">${new Date(item.created_at).toLocaleDateString()}</td>
                         <td class="history-actions">
                             <button class="btn btn-sm view-analysis-btn" title="View analysis">View</button>
-                            <button class="btn btn-sm btn-danger delete-analysis-btn" title="Delete analysis">Delete</button>
                         </td>
                     </tr>
                 `).join('')}
@@ -80,12 +79,7 @@ function attachHistoryEventListeners() {
         });
     });
 
-    document.querySelectorAll('.delete-analysis-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const analysisId = e.target.closest('tr').getAttribute('data-analysis-id');
-            deleteAnalysis(analysisId);
-        });
-    });
+    // Delete button functionality has been removed
 }
 
 function displayPagination(pagination) {
@@ -133,9 +127,31 @@ export async function viewAnalysis(analysisId) {
 }
 
 function displayAnalysisModal(analysis) {
-    if (!Elements.modalAnalysisContent || !Elements.analysisModal) return;
+    if (!Elements.modalAnalysisContent || !Elements.analysisModal) {
+        console.error('Modal elements not found');
+        return;
+    }
 
-    const causesHTML = analysis.causes && analysis.causes.length > 0 ?
+    console.log('Opening modal for analysis:', analysis.analysis_id || analysis.analysisId);
+
+    // Store the modal state
+    Elements.analysisModal.dataset.isOpen = 'true';
+
+    // Disable any existing transitions temporarily
+    Elements.analysisModal.style.transition = 'none';
+    
+    // Set initial state
+    Elements.analysisModal.style.display = 'flex';
+    Elements.analysisModal.style.opacity = '0';
+    
+    // Force a reflow to ensure the display change is processed
+    void Elements.analysisModal.offsetHeight;
+    
+    // Re-enable transitions
+    Elements.analysisModal.style.transition = 'opacity 0.3s ease, visibility 0.3s ease';
+
+    // Generate modal content
+    const causesHTML = analysis.causes?.length > 0 ?
         `<div class="result-item">
             <div class="result-label">Causes</div>
             <div class="recommendation-list">
@@ -143,7 +159,7 @@ function displayAnalysisModal(analysis) {
             </div>
         </div>` : '';
 
-    const treatmentsHTML = analysis.treatments && analysis.treatments.length > 0 ?
+    const treatmentsHTML = analysis.treatments?.length > 0 ?
         `<div class="result-item">
             <div class="result-label">Treatments</div>
             <div class="recommendation-list">
@@ -151,7 +167,7 @@ function displayAnalysisModal(analysis) {
             </div>
         </div>` : '';
 
-    const preventionHTML = analysis.prevention && analysis.prevention.length > 0 ?
+    const preventionHTML = analysis.prevention?.length > 0 ?
         `<div class="result-item">
             <div class="result-label">Prevention</div>
             <div class="recommendation-list">
@@ -159,31 +175,34 @@ function displayAnalysisModal(analysis) {
             </div>
         </div>` : '';
 
-    Elements.modalTitle.textContent = analysis.disease_name || analysis.diseaseName;
-    const isHealthy = analysis.status === 'healthy' || /healthy/i.test(analysis.disease_name || analysis.diseaseName || '');
+    const diseaseName = analysis.disease_name || analysis.diseaseName || 'Unknown';
+    const isHealthy = analysis.status === 'healthy' || /healthy/i.test(diseaseName);
+    
+    // Set the modal content
+    Elements.modalTitle.textContent = diseaseName;
     
     Elements.modalAnalysisContent.innerHTML = `
         <div class="modal-layout">
-            <img src="${analysis.image_path || analysis.imagePath}" alt="${analysis.disease_name}" class="modal-image">
+            <img src="${analysis.image_path || analysis.imagePath || ''}" alt="${diseaseName}" class="modal-image">
             <div class="modal-analysis-grid">
                 <div class="result-item">
                     <div class="result-label">Disease</div>
-                    <div class="result-value">${analysis.disease_name || analysis.diseaseName}</div>
+                    <div class="result-value">${diseaseName}</div>
                 </div>
                 <div class="result-item">
                     <div class="result-label">Severity</div>
-                    <span class="status-badge status-${analysis.status}">${analysis.severity.toUpperCase()} RISK</span>
+                    <span class="status-badge status-${analysis.status || 'unknown'}">${(analysis.severity || 'UNKNOWN').toUpperCase()} RISK</span>
                 </div>
                 <div class="result-item">
                     <div class="result-label">Confidence Level</div>
                     <div class="confidence-bar">
-                        <div class="confidence-fill" style="width: ${analysis.confidence}%"></div>
+                        <div class="confidence-fill" style="width: ${analysis.confidence || 0}%"></div>
                     </div>
-                    <div class="confidence-text">${analysis.confidence}% confidence</div>
+                    <div class="confidence-text">${analysis.confidence || 0}% confidence</div>
                 </div>
                 <div class="result-item">
                     <div class="result-label">Description</div>
-                    <div class="result-value" style="font-size: 0.95em; font-weight: 400; line-height: 1.6; margin-top: 4px;">${analysis.description || ''}</div>
+                    <div class="result-value" style="font-size: 0.95em; font-weight: 400; line-height: 1.6; margin-top: 4px;">${analysis.description || 'No description available.'}</div>
                 </div>
                 ${isHealthy ? `
                 <div class="success-message">
@@ -193,27 +212,74 @@ function displayAnalysisModal(analysis) {
                 ${treatmentsHTML}
                 ${preventionHTML}
                 <div style="display: flex; gap: 12px; margin-top: 20px;">
-                    ${isHealthy ? '' : `<button class=\"btn\" data-analysis-id=\"${analysis.analysis_id || analysis.analysisId}\" id=\"viewPlansBtn\" style=\"flex: 1;\">View Treatment Plans</button>`}
-                    <button class="btn btn-danger" data-analysis-id="${analysis.analysis_id || analysis.analysisId}" id="modalDeleteBtn" style="flex: 1;">Delete Analysis</button>
+                    ${!isHealthy ? `<button class="btn" data-analysis-id="${analysis.analysis_id || analysis.analysisId || ''}" id="viewPlansBtn" style="flex: 1; width: 100%;">View Treatment Plans</button>` : ''}
                 </div>
             </div>
         </div>
     `;
-
-    Elements.analysisModal.classList.add('show');
-    attachModalEventListeners(analysis.analysis_id || analysis.analysisId);
+    
+    // Show the modal with a small delay to ensure the content is rendered
+    setTimeout(() => {
+        Elements.analysisModal.classList.add('show');
+        Elements.analysisModal.style.opacity = '1';
+        
+        // Attach event listeners for the modal with the analysis data
+        attachModalEventListeners(analysis);
+    }, 10);
 }
 
-function attachModalEventListeners(analysisId) {
-    if (Elements.modalCloseBtn) {
-        Elements.modalCloseBtn.removeEventListener('click', closeModal);
-        Elements.modalCloseBtn.addEventListener('click', closeModal);
-    }
+// Store handler reference at module level
+let currentOverlayHandler = null;
 
-    if (Elements.modalOverlay) {
-        Elements.modalOverlay.removeEventListener('click', closeModal);
-        Elements.modalOverlay.addEventListener('click', closeModal);
+// Add this to the displayAnalysisModal function after the modal is shown
+function attachModalEventListeners(analysis) {
+    // Get a fresh reference to the close button
+    const closeBtn = document.getElementById('modalCloseBtn');
+    if (closeBtn) {
+        // Remove any existing listeners by cloning and replacing
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        
+        // Add new click handler with a small delay to prevent immediate close
+        setTimeout(() => {
+            newCloseBtn.addEventListener('click', handleCloseButtonClick);
+        }, 50);
     }
+    
+    // Remove previous overlay handler if it exists
+    if (currentOverlayHandler && Elements.analysisModal) {
+        Elements.analysisModal.removeEventListener('click', currentOverlayHandler);
+    }
+    
+    // Create new handler - attach to the modal itself
+    currentOverlayHandler = function(e) {
+        // Close if clicking on the modal background (not on modal-content or its children)
+        if (e.target === Elements.analysisModal || e.target === Elements.modalOverlay) {
+            closeModal();
+        }
+    };
+    
+    // Add the new handler
+    if (Elements.analysisModal) {
+        Elements.analysisModal.addEventListener('click', currentOverlayHandler);
+    }
+    
+    // Add keyboard event for ESC key
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    
+    // Clean up the keyboard event listener when modal is closed
+    const cleanup = () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        document.removeEventListener('modalClosed', cleanup);
+    };
+    
+    document.addEventListener('modalClosed', cleanup);
 
     const deleteBtn = document.getElementById('modalDeleteBtn');
     if (deleteBtn) {
@@ -223,30 +289,98 @@ function attachModalEventListeners(analysisId) {
 
     const viewPlansBtn = document.getElementById('viewPlansBtn');
     if (viewPlansBtn) {
-        viewPlansBtn.addEventListener('click', async () => {
+        // Store the analysis ID in a closure
+        const analysisId = analysis.analysis_id || analysis.analysisId;
+        
+        // Remove any existing listeners
+        const newViewPlansBtn = viewPlansBtn.cloneNode(true);
+        viewPlansBtn.parentNode.replaceChild(newViewPlansBtn, viewPlansBtn);
+        
+        // Add new click handler
+        newViewPlansBtn.addEventListener('click', async () => {
             try {
                 const resp = await ApiService.getTreatmentPlansByAnalysis(analysisId);
                 const first = (resp.data || [])[0];
                 if (!first) return showError('No treatment plans for this analysis yet');
-                window.dispatchEvent(new CustomEvent('openTreatmentPlan', { detail: { planId: first.plan_id } }));
+                window.dispatchEvent(new CustomEvent('openTreatmentPlan', { 
+                    detail: { 
+                        planId: first.plan_id,
+                        analysisId: analysisId
+                    } 
+                }));
             } catch (err) {
-                showError(err.message);
+                showError(err.message || 'Failed to load treatment plans');
             }
         });
     }
 }
 
-function closeModal() {
-    if (Elements.analysisModal) {
-        Elements.analysisModal.classList.remove('show');
+// Handle close button click
+function handleCloseButtonClick(e) {
+    e.stopPropagation();
+    closeModal();
+}
+
+// Handle overlay click
+function handleOverlayClick(e) {
+    if (e.target === Elements.analysisModal || e.target === Elements.modalOverlay) {
+        closeModal();
     }
 }
 
-function handleModalDelete(e) {
-    const analysisId = e.target.getAttribute('data-analysis-id');
-    closeModal();
-    deleteAnalysis(analysisId);
+function closeModal() {
+    console.log('closeModal called');
+    const modal = Elements.analysisModal;
+    if (!modal || modal.dataset.isOpen !== 'true') {
+        return;
+    }
+    
+    // Mark as closing to prevent multiple triggers
+    modal.dataset.isOpen = 'false';
+    
+    // Remove the show class and fade out
+    modal.classList.remove('show');
+    modal.style.opacity = '0';
+    
+    // Wait for the transition to complete before hiding the modal
+    const onTransitionEnd = () => {
+        // Clean up
+        modal.style.display = 'none';
+        modal.style.transition = 'none'; // Reset transition for next open
+        modal.removeEventListener('transitionend', onTransitionEnd);
+        
+        // Clear content
+        if (Elements.modalAnalysisContent) {
+            Elements.modalAnalysisContent.innerHTML = '';
+        }
+        
+        // Clean up event listeners
+        if (Elements.modalCloseBtn) {
+            Elements.modalCloseBtn.removeEventListener('click', handleCloseButtonClick);
+        }
+        if (currentOverlayHandler) {
+            modal.removeEventListener('click', currentOverlayHandler);
+            currentOverlayHandler = null;
+        }
+        
+        console.log('Modal fully closed');
+    };
+    
+    // Use transitionend event if transitions are enabled
+    if (window.getComputedStyle(modal).transition !== 'all 0s ease 0s') {
+        modal.addEventListener('transitionend', onTransitionEnd, { once: true });
+        
+        // Safety timeout in case transitionend doesn't fire
+        setTimeout(() => {
+            if (modal.dataset.isOpen === 'false') {
+                onTransitionEnd();
+            }
+        }, 500);
+    } else {
+        onTransitionEnd();
+    }
 }
+
 
 function showDeleteConfirmation(analysisId) {
     if (!Elements.deleteConfirmationModal) return;

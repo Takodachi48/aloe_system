@@ -11,14 +11,45 @@ cloudinary.config({
 
 // Configure multer with Cloudinary storage - dynamic folder based on context
 const createStorage = (context = 'general') => {
+    console.log(`[Cloudinary] Creating storage for context: ${context}`);
+    
     return new CloudinaryStorage({
         cloudinary: cloudinary,
         params: {
             folder: (req, file) => {
-                // Organize by context and user
+                const requestId = req.requestId || 'no-request-id';
+                const log = (...args) => console.log(`[Cloudinary][${requestId}]`, ...args);
+                
+                // Log request and file info for debugging
+                log('Processing file upload:', {
+                    originalname: file.originalname,
+                    mimetype: file.mimetype,
+                    size: file.size,
+                    fieldname: file.fieldname,
+                    userId: req.user?.userId || 'anonymous'
+                });
+                
+                // Get user ID from request or default to 'anonymous'
                 const userId = req.user?.userId || 'anonymous';
                 const contextFolder = getContextFolder(context);
-                return `aloeshield/${contextFolder}/${userId}`;
+                const folderPath = `aloeshield/${contextFolder}/${userId}`;
+                
+                log('Generated folder path:', folderPath);
+                log('User from request:', {
+                    userId: req.user?.userId,
+                    email: req.user?.email,
+                    isAdmin: req.user?.isAdmin || false
+                });
+                
+                // Log session information if available
+                if (req.session) {
+                    log('Session info:', {
+                        sessionId: req.session.id,
+                        userId: req.session.passport?.user
+                    });
+                }
+                
+                return folderPath;
             },
             allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
             transformation: [
@@ -29,7 +60,10 @@ const createStorage = (context = 'general') => {
                 const timestamp = Date.now();
                 const random = Math.random().toString(36).substring(2, 8);
                 const contextPrefix = getContextPrefix(context);
-                return `${contextPrefix}_${timestamp}_${random}`;
+                const publicId = `${contextPrefix}_${timestamp}_${random}`;
+                
+                console.log(`[Cloudinary] Generated public ID: ${publicId}`);
+                return publicId;
             }
         }
     });
