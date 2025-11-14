@@ -389,6 +389,9 @@ router.patch('/:analysisId/pot-name', authMiddleware, async (req, res) => {
             error: 'Update failed',
             message: 'An error occurred while updating the pot name'
         });
+    }
+});
+
 // Export all images sorted by disease type
 const archiver = require('archiver');
 const fetch = require('node-fetch');
@@ -1214,5 +1217,5 @@ router.post('/export/images', authMiddleware, async (req, res) => {
         }
     }
 });
-
+    
 module.exports = router;
