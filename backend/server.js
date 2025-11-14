@@ -24,6 +24,7 @@ const weatherRoutes = require('./routes/weather');
 const statusRoutes = require('./routes/status');
 const treatmentPlanRoutes = require('./routes/treatmentPlans');
 const analyticsRoutes = require('./routes/analytics');
+const announcementsRoutes = require('./routes/announcements');
 const healthCheckService = require('./services/healthCheck');
 
 // Security middleware
@@ -153,6 +154,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/treatment-plans', treatmentPlanRoutes);
 app.use('/api/cloudinary', require('./routes/cloudinary'));
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/announcements', announcementsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

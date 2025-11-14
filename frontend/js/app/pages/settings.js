@@ -666,9 +666,28 @@ async function handlePasswordUpdate() {
     }
 }
 
-// Initialize settings when the script loads
+// Initialize settings when the script loads, but only on the settings page
+const initializeSettings = () => {
+    // Check if we're on the settings page by looking for specific elements
+    const settingsElements = [
+        'profilePictureInput',
+        'profilePicturePreview',
+        'uploadPictureBtn',
+        'updateUsernameBtn'
+    ];
+    
+    const hasSettingsElements = settingsElements.some(id => document.getElementById(id));
+    const isSettingsPage = document.getElementById('settingsPage') || 
+                          window.location.pathname.includes('settings');
+    
+    if (isSettingsPage || hasSettingsElements) {
+        console.log('Initializing settings page...');
+        initSettings();
+    }
+};
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initSettings);
+    document.addEventListener('DOMContentLoaded', initializeSettings);
 } else {
-    initSettings();
+    initializeSettings();
 }

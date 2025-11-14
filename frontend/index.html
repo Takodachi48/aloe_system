@@ -6,6 +6,7 @@
     <title>AloeShield - Disease Detection & Prevention</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/notifications.css">
 </head>
 <body>
     <!-- Header Component -->
@@ -16,6 +17,11 @@
     <!-- Sidebar Component -->
     <div id="sidebar-container">
         <!-- Sidebar will be loaded here by JavaScript -->
+    </div>
+
+    <!-- Notifications Component -->
+    <div id="notifications-container">
+        <!-- Notifications will be loaded here by JavaScript -->
     </div>
 
     <!-- Main Content -->
@@ -517,6 +523,10 @@
         </div>
     </div>
 
+    <!-- Notifications Component -->
+    <script type="module" src="js/core/notifications-loader.js"></script>
+    <script type="module" src="js/app/components/notifications.js"></script>
+    
     <!-- Main App Script -->
     <script type="module" src="/js/init/app.js"></script>
     

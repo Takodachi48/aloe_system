@@ -1,0 +1,208 @@
+/* Notifications Modal */
+.notifications-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 80px 20px 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.notifications-modal.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.notifications-container {
+    width: 100%;
+    max-width: 400px;
+    max-height: 80vh;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.notifications-modal.active .notifications-container {
+    transform: translateY(0);
+}
+
+.notifications-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.notifications-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.notifications-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.mark-all-read,
+.close-notifications {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.mark-all-read:hover,
+.close-notifications:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.mark-all-read svg,
+.close-notifications svg {
+    stroke-width: 2.5;
+}
+
+.notifications-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: 60vh;
+}
+
+.notification-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    text-align: center;
+    color: #666;
+}
+
+.notification-empty svg {
+    margin-bottom: 16px;
+    stroke-width: 1.5;
+}
+
+.notification-empty p {
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* Notification Item */
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.notification-item:hover {
+    background-color: #f9f9f9;
+}
+
+.notification-item.unread {
+    background-color: #f5f9f5;
+}
+
+.notification-item.unread .notification-message {
+    font-weight: 500;
+}
+
+.notification-icon {
+    margin-right: 12px;
+    color: #4CAF50;
+    flex-shrink: 0;
+}
+
+.notification-icon svg {
+    stroke-width: 2;
+}
+
+.notification-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.notification-message {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: #888;
+}
+
+.notification-dismiss {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 8px;
+    border-radius: 4px;
+    transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+.notification-dismiss:hover {
+    color: #f44336;
+    background-color: rgba(244, 67, 54, 0.1);
+}
+
+.notification-dismiss svg {
+    display: block;
+    stroke-width: 2.5;
+}
+
+/* Animation for new notifications */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.notification-item.new {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+    .notifications-modal {
+        padding: 60px 10px 10px;
+    }
+    
+    .notifications-container {
+        max-height: 90vh;
+    }
+    
+    .notification-item {
+        padding: 14px 16px;
+    }
+}

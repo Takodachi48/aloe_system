@@ -1,15 +1,24 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
-const { database } = require('../database/database');
+const database = require('../database/database');
 
 // GET /api/announcements
-router.get('/', auth, async function(req, res) {
-    console.log('GET /api/announcements received');
+router.get('/', async (req, res) => {
     try {
+        console.log('GET /api/announcements received');
+        console.log('Request headers:', req.headers);
+        console.log('Session ID:', req.sessionID);
+        console.log('Session data:', req.session);
         console.log('Authenticated user:', req.user);
         
-        const db = await database.connect();
+        // Wait for database connection
+        await database.waitForConnection();
+        const db = database.getDb();
+        
+        if (!db) {
+            throw new Error('Database connection not available');
+        }
+
         const query = { 
             isActive: true,
             $or: [
@@ -26,11 +35,13 @@ router.get('/', auth, async function(req, res) {
         res.setHeader('Content-Type', 'application/json');
         res.json(announcements);
     } catch (error) {
-        console.error('Error fetching announcements:', error);
-        res.status(500).json({ 
-            error: 'Failed to fetch announcements', 
-            details: error.message 
-        });
+        console.error('Error in /api/announcements:', error);
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: 'Failed to fetch announcements', 
+                details: error.message 
+            });
+        }
     }
 });
 
