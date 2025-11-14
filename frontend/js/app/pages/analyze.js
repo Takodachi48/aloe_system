@@ -98,14 +98,65 @@ export async function analyzeImage() {
         setProgressBar(100);
         hideLoading();
 
-        // Check if the detected plant is aloe vera
+        // Check if the detected plant is aloe vera with sufficient confidence and gap
         const aloeDiseases = ['healthy', 'leaf_spot', 'root_rot', 'sunburn'];
         const diseaseKey = analysisResponse.data.diseaseKey;
         const confidence = analysisResponse.data.confidence;
-        console.log('Aloe detection check:', { diseaseKey, confidence, type: typeof confidence, isInArray: aloeDiseases.includes(diseaseKey), confidenceCheck: confidence >= 60 });
-        const isAloeVera = aloeDiseases.includes(diseaseKey) && confidence >= 60;
+        
+        // Get all predictions and sort by confidence
+        const predictions = analysisResponse.data.all_predictions || {};
+        const sortedPredictions = Object.entries(predictions)
+            .sort((a, b) => b[1] - a[1]);
+            
+        const topPrediction = sortedPredictions[0] || [];
+        const secondPrediction = sortedPredictions[1] || [];
+        
+        const confidenceGap = topPrediction[1] - (secondPrediction[1] || 0);
+        // Adjust thresholds based on disease type
+        const isRootRot = diseaseKey === 'root_rot';
+        const isSunburn = diseaseKey === 'sunburn';
+        const isHealthy = diseaseKey === 'healthy';
+        
+        // Set minimum confidence thresholds
+        const minConfidence = isRootRot ? 85 : (
+            isSunburn ? 65 : (
+                isHealthy ? 75 : 80  // Healthy needs at least 75% confidence
+            )
+        );
+        const minGap = isRootRot ? 25 : (
+            isSunburn ? 10 : 20
+        );
+        
+        const isConfidentEnough = confidence >= minConfidence;
+        const hasSignificantGap = confidenceGap >= minGap;
+        const isAloeDisease = aloeDiseases.includes(diseaseKey);
+        
+        console.log('Aloe detection check:', { 
+            diseaseKey, 
+            confidence, 
+            isAloeDisease,
+            minConfidence: isRootRot ? 85 : (isSunburn ? 65 : (isHealthy ? 75 : 80)),
+            minGap: isRootRot ? 25 : (isSunburn ? 10 : 20),
+            confidenceCheck: isConfidentEnough,
+            confidenceGap,
+            hasSignificantGap,
+            predictions: sortedPredictions,
+            isRootRot
+        });
+        
+        const isAloeVera = isAloeDisease && isConfidentEnough && hasSignificantGap;
 
         if (!isAloeVera) {
+            // Delete the uploaded file since it's not an aloe vera
+            if (AppState.currentUploadData?.filename) {
+                try {
+                    await ApiService.deleteUpload(AppState.currentUploadData.filename);
+                    console.log('Deleted non-aloe image upload');
+                } catch (error) {
+                    console.error('Error deleting non-aloe image:', error);
+                }
+            }
+
             // Show popup for non-aloe vera detection
             const popup = document.createElement('div');
             popup.className = 'aloe-detection-popup';
@@ -131,6 +182,7 @@ export async function analyzeImage() {
 
             // Reset state
             AppState.isAnalyzing = false;
+            AppState.currentUploadData = null;
             if (Elements.analyzeBtn) {
                 Elements.analyzeBtn.disabled = false;
                 Elements.analyzeBtn.textContent = 'Analyze Image';
@@ -139,14 +191,18 @@ export async function analyzeImage() {
             return;
         }
 
-        AppState.lastAnalysis = analysisResponse.data;
-        displayResults(analysisResponse.data);
-        showSuccess('Analysis completed successfully!');
-
-        AppState.isAnalyzed = true;
-        disableAnalyzeButton();
-
-        await loadHistoryPage(1);
+        // Only proceed with saving if it's a confirmed aloe vera image
+        if (isAloeVera) {
+            AppState.lastAnalysis = analysisResponse.data;
+            displayResults(analysisResponse.data);
+            showSuccess('Analysis completed successfully!');
+            AppState.isAnalyzed = true;
+            disableAnalyzeButton();
+            await loadHistoryPage(1);
+        } else {
+            // Reset the upload state if somehow we got here without the previous check catching it
+            resetForNewUpload();
+        }
 
         hideProgressBar();
         
@@ -154,7 +210,36 @@ export async function analyzeImage() {
         hideLoading();
         hideProgressBar();
         console.error('Analysis error:', error);
-        showError('Analysis failed: ' + error.message);
+        
+        // Check if this is a non-aloe image error
+        if (error.isAloeError) {
+            // Show the non-aloe popup
+            const popup = document.createElement('div');
+            popup.className = 'aloe-detection-popup';
+            popup.innerHTML = `
+                <div class="popup-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+                    <div class="popup-content" style="background:white; padding:24px; border-radius:8px; max-width:400px; text-align:center; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                        <h3 style="margin:0 0 16px 0; color:#f57c00;">Not an Aloe Vera Leaf</h3>
+                        <p style="margin:0 0 20px 0; line-height:1.5;">${error.message || 'This app is designed specifically for analyzing aloe vera plants. Please upload a clear photo of an aloe vera leaf to continue.'}</p>
+                        <button class="btn btn-primary aloe-reset-btn" style="padding:10px 20px;">Upload Aloe Vera Leaf</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(popup);
+
+            // Add event listener to the reset button
+            const resetBtn = popup.querySelector('.aloe-reset-btn');
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                    popup.remove();
+                    resetForNewUpload();
+                });
+            }
+        } else {
+            // Show regular error for other types of errors
+            showError('Analysis failed: ' + error.message);
+        }
+        
         AppState.isAnalyzing = false;
         if (Elements.analyzeBtn) {
             Elements.analyzeBtn.disabled = false;
@@ -354,22 +439,67 @@ export function displayResults(results) {
 let cameraStream = null;
 let currentFacingMode = 'environment'; // Start with back camera
 
+// Initialize camera UI elements and event listeners
 export async function initCamera() {
-    const switchCameraBtn = document.getElementById('switchCameraBtn');
+    const openCameraBtn = document.getElementById('openCameraBtn');
     const captureBtn = document.getElementById('captureBtn');
+    const cancelCameraBtn = document.getElementById('cancelCameraBtn');
     const cameraVideo = document.getElementById('cameraVideo');
     const cameraCanvas = document.getElementById('cameraCanvas');
     const cameraContainer = document.getElementById('cameraContainer');
     const cameraError = document.getElementById('cameraError');
+    const uploadArea = document.getElementById('uploadArea');
 
-    // Start camera automatically
-    await startCamera();
+    // Open camera when the button is clicked
+    if (openCameraBtn) {
+        openCameraBtn.addEventListener('click', async () => {
+            try {
+                // Show camera container first
+                cameraContainer.style.display = 'block';
+                
+                // Hide the upload area but keep the card visible
+                const uploadIcon = uploadArea.querySelector('.upload-icon');
+                const uploadText = uploadArea.querySelector('.upload-text');
+                const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+                const uploadButtons = uploadArea.querySelector('.upload-buttons');
+                
+                if (uploadIcon) uploadIcon.style.display = 'none';
+                if (uploadText) uploadText.style.display = 'none';
+                if (uploadSubtext) uploadSubtext.style.display = 'none';
+                if (uploadButtons) uploadButtons.style.display = 'none';
+                
+                // Start the camera
+                await startCamera();
+                
+            } catch (error) {
+                console.error('Failed to open camera:', error);
+                showError('Failed to access camera. Please check your camera permissions.');
+                // Reset UI on error
+                cameraContainer.style.display = 'none';
+                if (uploadIcon) uploadIcon.style.display = '';
+                if (uploadText) uploadText.style.display = '';
+                if (uploadSubtext) uploadSubtext.style.display = '';
+                if (uploadButtons) uploadButtons.style.display = '';
+            }
+        });
+    }
 
-    // Switch camera
-    if (switchCameraBtn) {
-        switchCameraBtn.addEventListener('click', async () => {
-            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-            await startCamera();
+    // Cancel camera
+    if (cancelCameraBtn) {
+        cancelCameraBtn.addEventListener('click', () => {
+            stopCamera();
+            cameraContainer.style.display = 'none';
+            
+            // Show the upload area elements again
+            const uploadIcon = uploadArea.querySelector('.upload-icon');
+            const uploadText = uploadArea.querySelector('.upload-text');
+            const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+            const uploadButtons = uploadArea.querySelector('.upload-buttons');
+            
+            if (uploadIcon) uploadIcon.style.display = '';
+            if (uploadText) uploadText.style.display = '';
+            if (uploadSubtext) uploadSubtext.style.display = '';
+            if (uploadButtons) uploadButtons.style.display = '';
         });
     }
 
@@ -384,6 +514,9 @@ export async function initCamera() {
             const dataUrl = cameraCanvas.toDataURL('image/png');
             const blob = dataURLToBlob(dataUrl);
             const file = new File([blob], 'camera-capture.png', { type: 'image/png' });
+            
+            // Stop camera after capturing
+            stopCamera();
             
             // Set as current file and update UI
             AppState.currentFile = file;
@@ -400,20 +533,36 @@ export async function initCamera() {
                 Elements.clearBtn.disabled = false;
             }
             
+            // Reset UI after capturing
+            cameraContainer.style.display = 'none';
+            
+            // Restore the upload area elements
+            const uploadArea = document.getElementById('uploadArea');
+            const uploadIcon = uploadArea.querySelector('.upload-icon');
+            const uploadText = uploadArea.querySelector('.upload-text');
+            const uploadSubtext = uploadArea.querySelector('.upload-subtext');
+            const uploadButtons = uploadArea.querySelector('.upload-buttons');
+            
+            if (uploadIcon) uploadIcon.style.display = '';
+            if (uploadText) uploadText.style.display = '';
+            if (uploadSubtext) uploadSubtext.style.display = '';
+            if (uploadButtons) uploadButtons.style.display = '';
+            
+            // Show success message
             showSuccess('Photo captured successfully!');
         });
     }
 }
 
+// Start the camera
 async function startCamera() {
-    stopCamera();
+    stopCamera(); // Stop any existing camera stream
     
     try {
         const cameraError = document.getElementById('cameraError');
-        const cameraContainer = document.getElementById('cameraContainer');
+        const cameraVideo = document.getElementById('cameraVideo');
         
         cameraError.style.display = 'none';
-        cameraContainer.style.display = 'block';
 
         const constraints = {
             video: {
@@ -424,22 +573,36 @@ async function startCamera() {
         };
 
         cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-        const cameraVideo = document.getElementById('cameraVideo');
         cameraVideo.srcObject = cameraStream;
+        
+        return new Promise((resolve) => {
+            cameraVideo.onloadedmetadata = () => {
+                cameraVideo.play();
+                resolve();
+            };
+        });
         
     } catch (error) {
         console.error('Camera error:', error);
-        const cameraContainer = document.getElementById('cameraContainer');
         const cameraError = document.getElementById('cameraError');
-        cameraContainer.style.display = 'none';
         cameraError.style.display = 'block';
+        throw error; // Re-throw to handle in the calling function
     }
 }
 
+// Stop the camera and clean up
 export function stopCamera() {
     if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach(track => {
+            track.stop();
+        });
         cameraStream = null;
+    }
+    
+    // Clear video source
+    const cameraVideo = document.getElementById('cameraVideo');
+    if (cameraVideo) {
+        cameraVideo.srcObject = null;
     }
 }
 
