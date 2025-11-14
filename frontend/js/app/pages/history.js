@@ -8,6 +8,7 @@ export async function loadHistoryPage(page = 1) {
         const response = await ApiService.getAnalysisHistory(page);
         hideLoading();
 
+        console.log('History API response:', response.data.analyses);
         displayHistoryItems(response.data.analyses);
         
         if (response.data.pagination && response.data.pagination.totalPages > 1) {
@@ -29,11 +30,18 @@ function displayHistoryItems(items) {
         return;
     }
 
+    // Debug: log the first item to see field names
+    if (items.length > 0) {
+        console.log('First history item fields:', Object.keys(items[0]));
+        console.log('First history item pot_name:', items[0].pot_name);
+    }
+
     const tableHTML = `
         <table class="history-table">
             <thead>
                 <tr>
                     <th>Image</th>
+                    <th>Pot Name</th>
                     <th>Disease</th>
                     <th>Confidence</th>
                     <th>Date</th>
@@ -46,6 +54,7 @@ function displayHistoryItems(items) {
                         <td class="history-thumbnail-cell">
                             <img src="${item.thumbnail_path}" alt="${item.disease_name}" class="history-thumbnail">
                         </td>
+                        <td class="history-pot-name">${item.pot_name || item.potName || 'Unnamed Pot'}</td>
                         <td class="history-disease">${item.disease_name}</td>
                         <td>${item.confidence}%</td>
                         <td class="history-date">${new Date(item.created_at).toLocaleDateString()}</td>

@@ -75,7 +75,7 @@ const DiseaseDatabase = {
 // Analyze image endpoint - requires authentication
 router.post('/analyze', authMiddleware, async (req, res) => {
     try {
-        const { filename, originalName, fileSize, mimeType } = req.body;
+        const { filename, originalName, fileSize, mimeType, potName } = req.body;
 
         if (!filename) {
             return res.status(400).json({
@@ -200,7 +200,8 @@ router.post('/analyze', authMiddleware, async (req, res) => {
             treatments: analysisResult.treatments,
             prevention: analysisResult.prevention,
             imagePath: uploadRecord.cloudinaryUrl,
-            thumbnailPath: uploadRecord.thumbnailUrl
+            thumbnailPath: uploadRecord.thumbnailUrl,
+            potName: potName || 'Unnamed Pot'
         };
         
         console.log('Analysis data to save:', JSON.stringify(analysisData));
@@ -214,6 +215,7 @@ router.post('/analyze', authMiddleware, async (req, res) => {
             message: 'Analysis completed successfully',
             data: {
                 analysisId: analysisId,
+                potName: analysisData.potName || 'Unnamed Pot',
                 ...analysisResult,
                 timestamp: new Date().toISOString(),
                 imagePath: analysisData.imagePath,
@@ -323,6 +325,70 @@ router.get('/stats/summary', async (req, res) => {
     }
 });
 
+// Update pot name for existing analysis
+router.patch('/:analysisId/pot-name', authMiddleware, async (req, res) => {
+    try {
+        const { analysisId } = req.params;
+        const { potName } = req.body;
+        const userId = req.user.userId;
+
+        if (!potName || potName.trim() === '') {
+            return res.status(400).json({
+                error: 'Invalid pot name',
+                message: 'Pot name cannot be empty'
+            });
+        }
+
+        // Check if user owns this analysis
+        const { getDb } = require('../database/database');
+        const db = getDb();
+        const collection = db.collection('analysis_history');
+
+        const analysis = await collection.findOne({
+            analysis_id: analysisId,
+            user_id: userId
+        });
+
+        if (!analysis) {
+            return res.status(404).json({
+                error: 'Analysis not found',
+                message: 'The specified analysis was not found or you do not have permission to update it'
+            });
+        }
+
+        // Update pot name
+        const result = await collection.updateOne(
+            { analysis_id: analysisId, user_id: userId },
+            {
+                $set: {
+                    pot_name: potName.trim(),
+                    updated_at: new Date()
+                }
+            }
+        );
+
+        if (result.modifiedCount === 0) {
+            return res.status(500).json({
+                error: 'Update failed',
+                message: 'Failed to update pot name'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Pot name updated successfully',
+            data: {
+                analysisId: analysisId,
+                potName: potName.trim()
+            }
+        });
+
+    } catch (error) {
+        console.error('Update pot name error:', error);
+        res.status(500).json({
+            error: 'Update failed',
+            message: 'An error occurred while updating the pot name'
+        });
 // Export all images sorted by disease type
 const archiver = require('archiver');
 const fetch = require('node-fetch');

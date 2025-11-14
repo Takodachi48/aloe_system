@@ -195,6 +195,7 @@ function renderPlan(plan) {
                     <div>
                         <h2 style="margin:0; color:var(--text); font-size:28px; font-weight:700;">Day ${d.day}</h2>
                         <div style="color:var(--muted); font-size:16px; margin-top:4px;">${plan.disease_name}</div>
+                        ${plan.pot_name ? `<div style="color:var(--muted); font-size:16px; margin-top:2px;">Pot: ${plan.pot_name}</div>` : ''}
                         <div style="display:flex; align-items:center; gap:16px; margin-top:12px;">
                             ${d.completed ?
                                 '<span class="status-badge status-healthy" style="font-size:14px; padding:6px 16px;">Completed</span>' :
@@ -440,7 +441,13 @@ export async function openTreatmentPlan(planId) {
         hideLoading();
         const plan = resp.data;
         if (!plan) return showError('Plan not found');
-        if (Elements.treatmentPlanTitle) Elements.treatmentPlanTitle.textContent = `Treatment Plan - ${plan.disease_name}`;
+        
+        if (Elements.treatmentPlanTitle) {
+            const title = plan.pot_name ?
+                `Treatment Plan - ${plan.disease_name} (${plan.pot_name})` :
+                `Treatment Plan - ${plan.disease_name}`;
+            Elements.treatmentPlanTitle.textContent = title;
+        }
         Elements.treatmentPlanModal.classList.add('show');
         renderPlan(plan);
     } catch (err) {
