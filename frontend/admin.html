@@ -237,28 +237,47 @@
                 <!-- D. Dataset Statistics -->
                 <div class="analytics-section">
                     <h2 class="section-title">Dataset Statistics</h2>
-                    <div class="analytics-grid">
-                        <!-- Training Dataset Distribution -->
+                    
+                    <!-- Dataset Charts -->
+                    <div class="dataset-container">
                         <div class="analytics-card">
                             <div class="card-header">
                                 <h3>Training Dataset Distribution</h3>
                             </div>
                             <div class="card-body">
                                 <canvas id="trainDatasetChart"></canvas>
-                                <div class="dataset-stats" id="trainDatasetStats">
-                                    <div class="loading-spinner"></div>
-                                    <span>Loading training dataset statistics...</span>
-                                </div>
                             </div>
                         </div>
-
-                        <!-- Validation Dataset Distribution -->
+                        
                         <div class="analytics-card">
                             <div class="card-header">
                                 <h3>Validation Dataset Distribution</h3>
                             </div>
                             <div class="card-body">
                                 <canvas id="validationDatasetChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Dataset Statistics Cards (separate group) -->
+                    <div class="dataset-stats-grid">
+                        <div class="analytics-card stats-card">
+                            <div class="card-header">
+                                <h3>Training Dataset Statistics</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="dataset-stats" id="trainDatasetStats">
+                                    <div class="loading-spinner"></div>
+                                    <span>Loading training dataset statistics...</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="analytics-card stats-card">
+                            <div class="card-header">
+                                <h3>Validation Dataset Statistics</h3>
+                            </div>
+                            <div class="card-body">
                                 <div class="dataset-stats" id="validationDatasetStats">
                                     <div class="loading-spinner"></div>
                                     <span>Loading validation dataset statistics...</span>

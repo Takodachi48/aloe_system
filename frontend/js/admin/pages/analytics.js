@@ -413,24 +413,23 @@ const AdminAnalytics = (() => {
                 labels: labels,
                 datasets: [{
                     data: counts,
-                    backgroundColor: colors.map(c => c + '80'),
-                    borderColor: colors,
-                    borderWidth: 1,
-                    hoverOffset: 10
+                    backgroundColor: colors,
+                    borderColor: '#fff',
+                    borderWidth: 2
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,
                 plugins: {
                     legend: {
-                        position: 'right',
+                        position: 'bottom',
                         labels: {
-                            boxWidth: 12,
-                            padding: 16,
-                            font: {
-                                size: 12
-                            }
+                            padding: 15,
+                            font: { 
+                                size: 12 
+                            },
+                            usePointStyle: true
                         }
                     },
                     tooltip: {
@@ -443,9 +442,7 @@ const AdminAnalytics = (() => {
                             }
                         }
                     }
-                },
-                cutout: '60%',
-                radius: '90%'
+                }
             }
         });
     }
