@@ -1,5 +1,14 @@
+// Import auth service
+import { getAuthToken, checkAuthentication } from '../../services/auth.js';
+
 // Initialize export page functionality
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check authentication status
+    const isAuthenticated = await checkAuthentication();
+    if (!isAuthenticated) {
+        console.log('User not authenticated, redirecting to login...');
+        return; // Redirect will be handled by checkAuthentication
+    }
     // Initialize custom selects
     const setupCustomSelects = () => {
         document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
@@ -161,6 +170,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } finally {
                 // Reset button state
                 submitBtn.disabled = false;
+                submitBtn.classList.remove('btn-loading');
                 submitBtn.innerHTML = originalBtnText;
             }
         });
@@ -178,11 +188,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const submitBtn = this.querySelector('button[type="submit"]');
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
+            submitBtn.classList.add('btn-loading');
             submitBtn.innerHTML = `
-                <div class="spinner-border spinner-border-sm" role="status" style="margin-right: 8px;">
-                    <span class="sr-only">Loading...</span>
-                </div>
-                Preparing Export...
+                <span class="spinner-border" role="status"></span>
+                <span class="btn-text">Preparing Export...</span>
             `;
             
             // Show progress container
@@ -197,13 +206,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 progressText.textContent = 'Preparing files... 10%';
                 
                 try {
+                    // Get auth token using the auth service
+                    const authToken = getAuthToken();
+                    console.log('Auth token status:', authToken ? 'Token found' : 'No valid token found');
+                    
+                    if (!authToken) {
+                        console.error('No valid authentication token found');
+                        // This will trigger the auth check and redirect to login
+                        await checkAuthentication();
+                        return;
+                    }
+
+                    console.log('Making export request to /api/analysis/export/images');
+                    
                     // Make API call to export images
                     const response = await fetch('/api/analysis/export/images', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
+                            'Authorization': `Bearer ${authToken}`
                         },
+                        credentials: 'include', // Include cookies if using them for auth
                         body: JSON.stringify({
                             exportAll: true,
                             startDate: null,
@@ -212,8 +235,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
 
                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.message || 'Export failed');
+                        console.error(`Export failed with status: ${response.status} ${response.statusText}`);
+                        const errorText = await response.text();
+                        console.error('Error response:', errorText);
+                        
+                        let errorData;
+                        try {
+                            errorData = JSON.parse(errorText);
+                        } catch (e) {
+                            errorData = { message: errorText };
+                        }
+                        
+                        if (response.status === 401) {
+                            console.log('Authentication required, redirecting to login...');
+                            // This will handle the redirect and token cleanup
+                            await checkAuthentication();
+                            return;
+                        }
+                        
+                        throw new Error(errorData.message || `Export failed with status ${response.status}`);
                     }
 
                     // Update progress
@@ -243,16 +283,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         submitBtn.disabled = false;
                         submitBtn.innerHTML = originalBtnText;
                         
-                        if (!exportAll) {
-                            // Reset date inputs if not exporting all
-                            document.getElementById('imagesStartDate').value = '';
-                            document.getElementById('imagesEndDate').value = '';
-                            document.getElementById('exportAllImages').checked = false;
-                        }
-                        
-                        // Reset the export all checkbox
+                        // Reset date inputs and checkboxes
+                        document.getElementById('imagesStartDate').value = '';
+                        document.getElementById('imagesEndDate').value = '';
                         document.getElementById('exportAllImages').checked = false;
-                        
                     }, 2000);
 
                 } catch (error) {
@@ -260,8 +294,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     progressBar.style.width = '0%';
                     progressText.textContent = 'Export failed. Please try again.';
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                    alert(`Export failed: ${error.message}`);
+                    submitBtn.classList.remove('btn-loading');
+                    submitBtn.innerHTML = `
+                        <span class="btn-text">Failed</span>
+                        <span class="btn-error-icon" aria-hidden="true">&#10005;</span>
+                    `;
+                    
+                    // More specific error messages based on error type
+                    let errorMessage = error.message || 'An unknown error occurred during export';
+                    if (error.message.includes('401') || error.message.includes('token')) {
+                        errorMessage = 'Your session has expired. Please log in again.';
+                        // Optionally redirect to login
+                        window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.pathname);
+                    }
+                    
+                    alert(`Export failed: ${errorMessage}`);
                 }
                 
             } catch (error) {

@@ -307,13 +307,8 @@ closeModal() {
             item.classList.add(`priority-${notification.priority}`);
         }
         
-        // Add announcement badge if it's an announcement
-        if (notification.isAnnouncement) {
-            const badge = document.createElement('span');
-            badge.className = 'announcement-badge';
-            badge.textContent = 'Announcement';
-            titleEl.appendChild(badge);
-        }
+        // Announcement indicator is now handled by the notification type icon
+        // No text label is needed
 
         // Set icon based on notification type
         this.setNotificationIcon(iconEl, notification.type);
